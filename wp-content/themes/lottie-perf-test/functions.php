@@ -596,6 +596,22 @@ function lottie_perf_test_critical_performance_optimizations() {
         .accordion-tab__slider-wrapper .media-slide.active-item {
             opacity: 1;
         }
+        nav.main-nav,
+        .main-nav {
+            display: flex;
+            align-items: center;
+            min-height: 60px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .wp-block-column.assistant-video {
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            min-height: 0;
+            position: relative;
+            overflow: hidden;
+        }
         lite-vimeo,
         .assistant-video lite-vimeo {
             display: block;
@@ -603,8 +619,27 @@ function lottie_perf_test_critical_performance_optimizations() {
             aspect-ratio: 16 / 9;
             min-height: 100%;
         }
-        .entry-content.wp-block-post-content {
-            min-height: 80vh;
+        .entry-content.wp-block-post-content,
+        .wp-block-post-content {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            padding-left: 0;
+            padding-right: 0;
+            margin-left: 0;
+            margin-right: 0;
+            box-sizing: border-box;
+        }
+        .entry-content.wp-block-post-content.is-layout-constrained,
+        .wp-block-post-content.is-layout-constrained {
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .entry-content.wp-block-post-content.has-global-padding,
+        .wp-block-post-content.has-global-padding {
+            padding-left: clamp(1.5rem, 5vw, 3rem);
+            padding-right: clamp(1.5rem, 5vw, 3rem);
         }
         /* CSS Variables */
         :root {
