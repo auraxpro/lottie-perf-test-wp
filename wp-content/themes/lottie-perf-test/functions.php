@@ -184,7 +184,11 @@ function lottie_perf_test_deferred_css_loading() {
         $href = esc_url($dist_uri . $file);
         $priority_attr = $index === 0 ? ' fetchpriority="high" importance="high"' : '';
 
-        echo '<link rel="preload" href="' . $href . '" as="style" onload="this.onload=null;this.rel=\'stylesheet\'" media="all"' . $priority_attr . ' crossorigin="anonymous">';
+        if ($file === 'main.style.min.css') {
+            echo '<link rel="stylesheet" href="' . $href . '" media="all"' . $priority_attr . ' crossorigin="anonymous">';
+        } else {
+            echo '<link rel="preload" href="' . $href . '" as="style" onload="this.onload=null;this.rel=\'stylesheet\'" media="all"' . $priority_attr . ' crossorigin="anonymous">';
+        }
     }
 
     foreach ($async_css as $file) {
@@ -274,7 +278,6 @@ add_action('wp_head', 'lottie_perf_test_deferred_css_loading', 15);
 function lottie_perf_test_trim_core_assets() {
     if (!is_admin()) {
         $styles = array(
-            'wp-block-library',
             'wp-block-library-theme',
             'global-styles',
             'classic-theme-styles',
