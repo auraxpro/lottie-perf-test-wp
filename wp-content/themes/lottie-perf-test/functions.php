@@ -65,7 +65,7 @@ function lottie_perf_test_scripts() {
 }
 add_action('wp_enqueue_scripts', 'lottie_perf_test_scripts');
 
-// Enqueue only required theme styles (fonts handled locally in head)
+// PERFORMANCE OPTIMIZED: Deferred CSS Loading for Non-Critical Styles
 function page_styles_enqueue() {
     $dist_dir  = get_template_directory() . '/assets/dist/css/';
     $dist_uri  = get_template_directory_uri() . '/assets/dist/css/';
@@ -79,44 +79,87 @@ function page_styles_enqueue() {
         }
     }
 
-    // Main compiled stylesheet (minified) - load first
-    if (file_exists($dist_dir . 'main.style.min.css')) {
-        $ver = filemtime($dist_dir . 'main.style.min.css');
-        wp_enqueue_style('lpt-main', $dist_uri . 'main.style.min.css', array(), $ver);
-    } elseif (file_exists($dist_dir . 'main.css')) {
-        // Fallback if unminified exists
-        $ver = filemtime($dist_dir . 'main.css');
-        wp_enqueue_style('lpt-main', $dist_uri . 'main.css', array(), $ver);
-    } else {
-        // Fallback: Create a minimal CSS if no files exist
-        lottie_perf_test_create_fallback_css();
-        wp_enqueue_style('lpt-main', $dist_uri . 'main.style.min.css', array(), '1.0.0');
-    }
-
-    // Accordion tab slider styles
-    $acc_path = get_template_directory() . '/assets/dist/css/accordion-tabsliderview.min.css';
-    if (file_exists($acc_path)) {
-        $ver = filemtime($acc_path);
-        wp_enqueue_style('lpt-accordion', get_template_directory_uri() . '/assets/dist/css/accordion-tabsliderview.min.css', array('lpt-main'), $ver);
-    }
+    // Only load critical CSS inline - everything else is deferred
+    // This prevents render-blocking CSS and improves FCP/LCP
     
-    // Additional CSS files if they exist - with better error handling
-    $additional_css = array('mega-menu-style.min.css','footer.min.css', 'style.min.css', 'blog-filter-style.min.css', 'cardRenderer.min.css', 'carousel.min.css', 'customer-cards-desktop.min.css', 'testimonial-card-mobile.min.css', 'customer-cards-mobile.min.css');
-    foreach ($additional_css as $css_file) {
-        $file_path = $dist_dir . $css_file;
-        if (file_exists($file_path)) {
-            $ver = filemtime($file_path);
-            $handle = 'lpt-' . str_replace('.min.css', '', $css_file);
-            wp_enqueue_style($handle, $dist_uri . $css_file, array('lpt-main'), $ver);
-        } else {
-            // Log missing files for debugging
-            if (current_user_can('administrator') && WP_DEBUG) {
-                error_log('CSS Debug - Missing file: ' . $file_path);
-            }
-        }
+    // Create fallback CSS if needed
+    if (!file_exists($dist_dir . 'main.style.min.css')) {
+        lottie_perf_test_create_fallback_css();
     }
 }
 add_action('wp_enqueue_scripts', 'page_styles_enqueue', 20);
+
+// DEFERRED CSS LOADING: Load non-critical CSS asynchronously using combined file
+function lottie_perf_test_deferred_css_loading() {
+    $dist_uri = get_template_directory_uri() . '/assets/dist/css/';
+    $dist_dir = get_template_directory() . '/assets/dist/css/';
+    
+    // Create combined CSS file if it doesn't exist
+    lottie_perf_test_combine_css_files();
+    
+    // Deferred CSS loading with preload + onload
+    echo '<script>
+    // Deferred CSS loading function
+    function loadCSS(href, media) {
+        var link = document.createElement("link");
+        link.rel = "preload";
+        link.as = "style";
+        link.href = href;
+        link.media = media || "all";
+        link.onload = function() { this.rel = "stylesheet"; };
+        document.head.appendChild(link);
+    }
+    
+    // Load non-critical CSS after page load
+    document.addEventListener("DOMContentLoaded", function() {
+        // Use combined CSS file if it exists, otherwise load individual files
+        var combinedCSS = "' . $dist_uri . 'combined.min.css";
+        var individualCSS = [
+            "' . $dist_uri . 'main.style.min.css",
+            "' . $dist_uri . 'accordion-tabsliderview.min.css",
+            "' . $dist_uri . 'mega-menu-style.min.css",
+            "' . $dist_uri . 'footer.min.css",
+            "' . $dist_uri . 'style.min.css",
+            "' . $dist_uri . 'blog-filter-style.min.css",
+            "' . $dist_uri . 'cardRenderer.min.css",
+            "' . $dist_uri . 'carousel.min.css",
+            "' . $dist_uri . 'customer-cards-desktop.min.css",
+            "' . $dist_uri . 'testimonial-card-mobile.min.css",
+            "' . $dist_uri . 'customer-cards-mobile.min.css"
+        ];
+        
+        // Check if combined file exists
+        fetch(combinedCSS, {method: "HEAD"})
+            .then(function(response) {
+                if (response.ok) {
+                    // Load combined CSS file
+                    loadCSS(combinedCSS);
+                } else {
+                    // Fallback to individual files
+                    individualCSS.forEach(function(css) {
+                        loadCSS(css);
+                    });
+                }
+            })
+            .catch(function() {
+                // Fallback to individual files on error
+                individualCSS.forEach(function(css) {
+                    loadCSS(css);
+                });
+            });
+    });
+    </script>';
+    
+    // Noscript fallback for users with JavaScript disabled
+    echo '<noscript>
+        <link rel="stylesheet" href="' . $dist_uri . 'main.style.min.css">
+        <link rel="stylesheet" href="' . $dist_uri . 'accordion-tabsliderview.min.css">
+        <link rel="stylesheet" href="' . $dist_uri . 'mega-menu-style.min.css">
+        <link rel="stylesheet" href="' . $dist_uri . 'footer.min.css">
+        <link rel="stylesheet" href="' . $dist_uri . 'style.min.css">
+    </noscript>';
+}
+add_action('wp_head', 'lottie_perf_test_deferred_css_loading', 15);
 
 // Add debugging and critical accordion layout fixes
 add_action('wp_head', function() {
@@ -274,49 +317,144 @@ function lottie_perf_test_handle_static_files() {
 }
 add_action('init', 'lottie_perf_test_handle_static_files', 1);
 
-    // Add performance optimizations
-    function lottie_perf_test_performance_optimizations() {
-        // Only add performance optimizations if we're not serving static files
-        if (!isset($_SERVER['REQUEST_URI']) || 
-            (strpos($_SERVER['REQUEST_URI'], '.css') === false && 
-             strpos($_SERVER['REQUEST_URI'], '.js') === false && 
-             strpos($_SERVER['REQUEST_URI'], '.mjs') === false)) {
+// PERFORMANCE OPTIMIZATION: Compression and caching headers
+function lottie_perf_test_performance_optimizations() {
+    // Only add performance optimizations if we're not serving static files
+    if (!isset($_SERVER['REQUEST_URI']) || 
+        (strpos($_SERVER['REQUEST_URI'], '.css') === false && 
+         strpos($_SERVER['REQUEST_URI'], '.js') === false && 
+         strpos($_SERVER['REQUEST_URI'], '.mjs') === false)) {
+        
+        // Add compression headers for HTML pages
+        if (!headers_sent()) {
+            header('Vary: Accept-Encoding');
+            header('Cache-Control: public, max-age=3600'); // 1 hour cache
+            header('X-Content-Type-Options: nosniff');
+            header('X-Frame-Options: SAMEORIGIN');
             
-            // Add preconnect hints for external resources
-            echo '<link rel="preconnect" href="https://unpkg.com" crossorigin>';
-            echo '<link rel="dns-prefetch" href="https://unpkg.com">';
-            
-            // No deferred CSS preload — we rely on main.css + mega-menu style only.
-            
-            // Add compression headers only for HTML pages
-            if (!headers_sent()) {
-                header('Vary: Accept-Encoding');
-                header('Cache-Control: public, max-age=3600'); // 1 hour cache
-                if (extension_loaded('zlib') && !ob_get_level()) {
-                    ob_start('ob_gzhandler');
-                }
+            // Enable compression
+            if (extension_loaded('zlib') && !ob_get_level()) {
+                ob_start('ob_gzhandler');
             }
         }
     }
+}
 add_action('wp_head', 'lottie_perf_test_performance_optimizations', 1);
 
-// Add resource hints as early as possible in <head>
-function lottie_perf_test_resource_hints() {
-    // External preconnects for better performance
-    echo '<link rel="preconnect" href="https://wordpress-l92nz.wasmer.app" crossorigin>';
+// PERFORMANCE OPTIMIZATION: Critical CSS, Preconnects, and Resource Hints
+function lottie_perf_test_critical_performance_optimizations() {
+    // 1. PRECONNECT & PREFETCH KEY ORIGINS
+    echo '<link rel="preconnect" href="https://tipalti.com" crossorigin>';
     echo '<link rel="preconnect" href="https://f.vimeocdn.com" crossorigin>';
-    echo '<link rel="preconnect" href="https://player.vimeo.com" crossorigin>';
+    echo '<link rel="dns-prefetch" href="https://vod-adaptive-ak.vimeocdn.com">';
     echo '<link rel="preconnect" href="https://vumbnail.com" crossorigin>';
-    // Preload local font files (Inter Regular 400, Medium 500)
+    echo '<link rel="preconnect" href="https://player.vimeo.com" crossorigin>';
+    
+    // 2. PRELOAD HERO IMAGE WITH FETCH PRIORITY
+    echo '<link rel="preload" as="image" href="https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header.webp" fetchpriority="high" imagesrcset="https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header.webp 1440w" imagesizes="100vw">';
+    
+    // 3. PRELOAD CRITICAL FONTS
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/font/Inter-Regular-subset-v1.1.0.woff2" as="font" type="font/woff2" crossorigin>';
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/font/Inter-Medium-subset-v1.1.0.woff2" as="font" type="font/woff2" crossorigin>';
     
-    // Preload critical Vimeo thumbnails for Speed Index
+    // 4. PRELOAD CRITICAL VIMEO THUMBNAILS
     echo '<link rel="preload" href="https://vumbnail.com/1121254619.jpg" as="image">';
     echo '<link rel="preload" href="https://vumbnail.com/1118182888.jpg" as="image">';
     
-    // Local @font-face to avoid external font CSS
+    // 5. INLINE CRITICAL CSS (under 3KB for above-the-fold content)
     echo '<style>
+        /* Critical CSS for FCP/LCP optimization */
+        body, header, .hero-section, .wp-block-cover {
+            margin: 0; 
+            padding: 0;
+            background: #fff;
+            font-display: swap;
+        }
+        .hero-section, .wp-block-cover {
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            min-height: 60vh;
+            overflow: hidden;
+        }
+        .wp-block-cover__image-background {
+            width: 100%; 
+            height: auto; 
+            object-fit: cover;
+        }
+        .wp-block-cover__inner-container {
+            position: relative;
+            z-index: 2;
+        }
+        .wp-block-heading {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-weight: 500;
+            line-height: 1.2;
+        }
+        .wp-block-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+        .wp-block-button__link {
+            display: inline-block;
+            padding: 16px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .is-style-secondary .wp-block-button__link {
+            background: #4d62d3;
+            color: white;
+            border: none;
+        }
+        .is-style-secondary .wp-block-button__link:hover {
+            background: #3d52c3;
+        }
+        /* Prevent layout shift */
+        dotlottie-player {
+            width: 100%;
+            height: 400px;
+            display: block;
+        }
+        /* Critical accordion styles */
+        .accordion-tab__slider-wrapper {
+            display: flex;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+            background: #fff;
+            border-radius: 64px;
+            box-shadow: 0 4px 16px 0 rgba(0,0,0,0.1);
+        }
+        .accordion-tab__slider-wrapper .slider-left {
+            flex: 1;
+        }
+        .accordion-tab__slider-wrapper .slider-right {
+            flex: 1;
+        }
+        .accordion-tab__slider-wrapper .pagination-item h3 {
+            display: block;
+            cursor: pointer;
+            margin: 0;
+            padding: 15px 0 0 0;
+            color: #6c6c6c;
+            transition: all 0.4s ease;
+        }
+        .accordion-tab__slider-wrapper .pagination-item h3:hover {
+            color: #141414;
+        }
+        .accordion-tab__slider-wrapper .pagination-item.active-item h3 {
+            color: #141414;
+        }
+        .accordion-tab__slider-wrapper .media-slide {
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+        .accordion-tab__slider-wrapper .media-slide.active-item {
+            opacity: 1;
+        }
+        /* CSS Variables */
         :root {
             --wp--preset--color--synergy-white: #ffffff;
             --wp--preset--color--synergy-paper: #fafafa;
@@ -330,7 +468,6 @@ function lottie_perf_test_resource_hints() {
             --wp--preset--color--synergy-melon: #FFECBC;
             --wp--preset--color--synergy-gold: #ffbd01;
             --wp--preset--color--synergy-sage-green: #C9D6C9;
-            
             --wp--custom--min-24-max-80: clamp(24px, 5vw, 80px);
             --wp--custom--min-24-max-64: clamp(24px, 3vw, 64px);
             --wp--custom--min-24-max-40: clamp(24px, 2vw, 40px);
@@ -377,16 +514,21 @@ function lottie_perf_test_resource_hints() {
             font-style: normal;
             font-display: swap;
         }
-        body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { 
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #141414;
+        }
     </style>';
     
-    // Preload only the first critical Lottie animation to prevent CLS
+    // 6. PRELOAD CRITICAL LOTTIE ANIMATION
     $template = get_page_template_slug();
     if ($template === 'page-local-test.php') {
         echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/lottie/invoice-capture-agent-1.lottie" as="fetch" crossorigin>';
     }
 }
-add_action('wp_head', 'lottie_perf_test_resource_hints', 0);
+add_action('wp_head', 'lottie_perf_test_critical_performance_optimizations', 0);
 
 // Fix WordPress Lottie file support
 function lottie_perf_test_add_lottie_support($mimes) {
@@ -566,6 +708,76 @@ function lottie_perf_test_dashboard() {
     echo '</div>';
 }
 
+// PERFORMANCE OPTIMIZATION: Combine small CSS files into one bundle
+function lottie_perf_test_combine_css_files() {
+    $dist_dir = get_template_directory() . '/assets/dist/css/';
+    $combined_file = $dist_dir . 'combined.min.css';
+    
+    // Check if combined file exists and is newer than individual files
+    if (file_exists($combined_file)) {
+        $combined_time = filemtime($combined_file);
+        $needs_rebuild = false;
+        
+        $css_files = array(
+            'main.style.min.css',
+            'accordion-tabsliderview.min.css',
+            'mega-menu-style.min.css',
+            'footer.min.css',
+            'style.min.css',
+            'blog-filter-style.min.css',
+            'cardRenderer.min.css',
+            'carousel.min.css',
+            'customer-cards-desktop.min.css',
+            'testimonial-card-mobile.min.css',
+            'customer-cards-mobile.min.css'
+        );
+        
+        foreach ($css_files as $file) {
+            $file_path = $dist_dir . $file;
+            if (file_exists($file_path) && filemtime($file_path) > $combined_time) {
+                $needs_rebuild = true;
+                break;
+            }
+        }
+        
+        if (!$needs_rebuild) {
+            return; // Combined file is up to date
+        }
+    }
+    
+    // Create combined CSS file
+    $combined_css = '';
+    $css_files = array(
+        'main.style.min.css',
+        'accordion-tabsliderview.min.css',
+        'mega-menu-style.min.css',
+        'footer.min.css',
+        'style.min.css',
+        'blog-filter-style.min.css',
+        'cardRenderer.min.css',
+        'carousel.min.css',
+        'customer-cards-desktop.min.css',
+        'testimonial-card-mobile.min.css',
+        'customer-cards-mobile.min.css'
+    );
+    
+    foreach ($css_files as $file) {
+        $file_path = $dist_dir . $file;
+        if (file_exists($file_path)) {
+            $combined_css .= "\n/* === " . $file . " === */\n";
+            $combined_css .= file_get_contents($file_path);
+            $combined_css .= "\n";
+        }
+    }
+    
+    // Minify the combined CSS (basic minification)
+    $combined_css = preg_replace('/\s+/', ' ', $combined_css);
+    $combined_css = preg_replace('/\/\*.*?\*\//', '', $combined_css);
+    $combined_css = str_replace(array('; ', ' {', '{ ', ' }', '} ', ': '), array(';', '{', '{', '}', '}', ':'), $combined_css);
+    
+    file_put_contents($combined_file, $combined_css);
+}
+
 // Create fallback CSS files if they don't exist on server
 function lottie_perf_test_create_fallback_css() {
     $dist_dir = get_template_directory() . '/assets/dist/css/';
@@ -592,4 +804,7 @@ dotlottie-player { width: 100%; height: 400px; }';
     $accordion_css = '.accordion-tab__slider-wrapper{align-items:center;background-color:#fff;box-shadow:0 4px 16px 0 rgba(0,0,0,0.1);display:flex;flex-direction:column;gap:80px;padding:24px}.accordion-tab__slider-wrapper .pagination-item h3{color:#6c6c6c;cursor:pointer;display:block;margin:0;padding:15px 0 0 0;transition:all 0.4s ease}.accordion-tab__slider-wrapper .pagination-item h3:hover{color:#141414}.accordion-tab__slider-wrapper .pagination-item.active-item h3{color:#141414}.accordion-tab__slider-wrapper .info-slide{max-height:0;opacity:0;overflow:hidden;transition:all 0.4s ease}.accordion-tab__slider-wrapper .info-slide.active-info-item{max-height:500px;opacity:1}.accordion-tab__slider-wrapper .media-slide{opacity:0;transition:all 0.4s ease;width:100%}.accordion-tab__slider-wrapper .media-slide.active-item{opacity:1;display:block}@media(min-width:962px){.accordion-tab__slider-wrapper{flex-direction:row}.accordion-tab__slider-wrapper.is-row-reverse{flex-direction:row-reverse}}';
     
     file_put_contents($dist_dir . 'accordion-tabsliderview.min.css', $accordion_css);
+    
+    // Create combined CSS file
+    lottie_perf_test_combine_css_files();
 }
