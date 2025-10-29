@@ -79,7 +79,7 @@ get_header(); ?>
                     <lite-vimeo
                         videoid="1121254619"
                         aspect-ratio="16/9"
-                        poster="https://vumbnail.com/1121254619.jpg"
+                        poster="<?php echo get_template_directory_uri(); ?>/assets/images/vumbnail.jpg"
                         style="width: 100%; height: 100%;">
                     </lite-vimeo>
                 </div>

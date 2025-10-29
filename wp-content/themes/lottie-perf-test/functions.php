@@ -182,9 +182,9 @@ function lottie_perf_test_deferred_css_loading() {
         }
 
         $href = esc_url($dist_uri . $file);
-        $extra = $index === 0 ? ' fetchpriority="high"' : '';
+        $priority_attr = $index === 0 ? ' fetchpriority="high" importance="high"' : '';
 
-        echo '<link rel="stylesheet" href="' . $href . '" media="all"' . $extra . '>';
+        echo '<link rel="preload" href="' . $href . '" as="style" onload="this.onload=null;this.rel=\'stylesheet\'" media="all"' . $priority_attr . ' crossorigin="anonymous">';
     }
 
     foreach ($async_css as $file) {
@@ -269,6 +269,26 @@ function lottie_perf_test_deferred_css_loading() {
     }
 }
 add_action('wp_head', 'lottie_perf_test_deferred_css_loading', 15);
+
+// Trim unused WordPress core assets to prevent extra render-blocking CSS
+function lottie_perf_test_trim_core_assets() {
+    if (!is_admin()) {
+        $styles = array(
+            'wp-block-library',
+            'wp-block-library-theme',
+            'global-styles',
+            'classic-theme-styles',
+            'core-block-supports',
+            'dashicons'
+        );
+
+        foreach ($styles as $handle) {
+            wp_dequeue_style($handle);
+            wp_deregister_style($handle);
+        }
+    }
+}
+add_action('wp_enqueue_scripts', 'lottie_perf_test_trim_core_assets', 100);
 
 // Add debugging and critical accordion layout fixes
 add_action('wp_head', function() {
@@ -467,8 +487,8 @@ function lottie_perf_test_critical_performance_optimizations() {
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/font/Inter-Medium-subset-v1.1.0.woff2" as="font" type="font/woff2" crossorigin>';
     
     // 4. PRELOAD CRITICAL VIMEO THUMBNAILS
-    echo '<link rel="preload" href="https://vumbnail.com/1121254619.jpg" as="image" fetchpriority="high" imagesrcset="https://vumbnail.com/1121254619.jpg 1280w" imagesizes="100vw" crossorigin>';
-    echo '<link rel="preload" href="https://vumbnail.com/1118182888.jpg" as="image" fetchpriority="high" imagesrcset="https://vumbnail.com/1118182888.jpg 1280w" imagesizes="100vw" crossorigin>';
+    echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/images/vumbnail.jpg" as="image" fetchpriority="high" imagesrcset="' . get_template_directory_uri() . '/assets/images/vumbnail.jpg.webp 1280w" imagesizes="100vw" crossorigin>';
+    
     
     // 5. INLINE CRITICAL CSS (under 3KB for above-the-fold content)
     echo '<style>
