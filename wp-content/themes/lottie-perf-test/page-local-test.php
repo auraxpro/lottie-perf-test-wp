@@ -79,9 +79,6 @@ get_header(); ?>
                     <lite-vimeo
                         videoid="1121254619"
                         aspect-ratio="16/9"
-                        autoplay
-                        muted
-                        loop
                         poster="https://vumbnail.com/1121254619.jpg"
                         style="width: 100%; height: 100%;">
                     </lite-vimeo>

@@ -87,9 +87,9 @@ function lottie_perf_test_scripts() {
                         if ("requestIdleCallback" in window) {
                             requestIdleCallback(function() {
                                 loadLottieScript();
-                            }, { timeout: 1500 });
+                            }, { timeout: 5000 });
                         } else {
-                            setTimeout(loadLottieScript, 600);
+                            setTimeout(loadLottieScript, 3000);
                         }
                     }
 
@@ -113,9 +113,6 @@ function lottie_perf_test_scripts() {
                             observer.observe(player);
                         });
 
-                        window.addEventListener("load", function() {
-                            scheduleIdleLoad();
-                        }, { once: true });
                     } else {
                         scheduleIdleLoad();
                     }
