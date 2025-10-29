@@ -14,14 +14,15 @@ get_header(); ?>
         </span>
         <picture fetchpriority="high" decoding="async">
             <source type="image/webp"
-                srcset="https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header-1440x522-300dpi.jpg.webp 1440w, https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header-1440x522-300dpi-300x109.jpg.webp 300w, https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header-1440x522-300dpi-768x278.jpg.webp 768w, https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header-1440x522-300dpi-600x218.jpg.webp 600w"
+                srcset="https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header.webp 1440w"
                 sizes="(max-width: 1440px) 100vw, 1440px">
-            <img fetchpriority="high" decoding="async" width="1440" height="522"
-                class="wp-block-cover__image-background wp-image-62843" alt=""
-                src="https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header-1440x522-300dpi.jpg"
-                data-object-fit="cover"
-                srcset="https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header-1440x522-300dpi.jpg 1440w, https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header-1440x522-300dpi-300x109.jpg 300w, https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header-1440x522-300dpi-768x278.jpg 768w, https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header-1440x522-300dpi-600x218.jpg 600w"
-                sizes="(max-width: 1440px) 100vw, 1440px" loading="eager">
+            <img src="https://tipalti.com/en-eu/wp-content/uploads/sites/3/2025/09/Tipalti-AI-Header.webp"
+                width="1440" height="522"
+                alt="Tipalti AI Header"
+                fetchpriority="high"
+                decoding="async"
+                loading="eager"
+                class="wp-block-cover__image-background">
         </picture>
         <div
             class="wp-block-cover__inner-container has-global-padding is-layout-constrained wp-block-cover-is-layout-constrained">
