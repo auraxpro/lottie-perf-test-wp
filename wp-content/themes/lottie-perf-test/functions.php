@@ -493,11 +493,20 @@ function lottie_perf_test_critical_performance_optimizations() {
     // 5. INLINE CRITICAL CSS (under 3KB for above-the-fold content)
     echo '<style>
         /* Critical CSS for FCP/LCP optimization */
+        html {
+            scroll-behavior: smooth;
+        }
         body, header, .hero-section, .wp-block-cover {
             margin: 0; 
             padding: 0;
             background: #fff;
             font-display: swap;
+        }
+        body {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #141414;
         }
         .hero-section, .wp-block-cover {
             display: flex; 
@@ -505,6 +514,7 @@ function lottie_perf_test_critical_performance_optimizations() {
             justify-content: center;
             min-height: 60vh;
             overflow: hidden;
+            aspect-ratio: 1440 / 522;
         }
         .wp-block-cover__image-background {
             width: 100%; 
@@ -583,6 +593,16 @@ function lottie_perf_test_critical_performance_optimizations() {
         .accordion-tab__slider-wrapper .media-slide.active-item {
             opacity: 1;
         }
+        lite-vimeo,
+        .assistant-video lite-vimeo {
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            min-height: 100%;
+        }
+        .entry-content.wp-block-post-content {
+            min-height: 80vh;
+        }
         /* CSS Variables */
         :root {
             --wp--preset--color--synergy-white: #ffffff;
@@ -635,6 +655,10 @@ function lottie_perf_test_critical_performance_optimizations() {
             font-weight: 400;
             font-style: normal;
             font-display: swap;
+            size-adjust: 100%;
+            ascent-override: 90%;
+            descent-override: 22%;
+            line-gap-override: 0%;
         }
         @font-face {
             font-family: "Inter";
@@ -642,12 +666,10 @@ function lottie_perf_test_critical_performance_optimizations() {
             font-weight: 500;
             font-style: normal;
             font-display: swap;
-        }
-        body { 
-            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 16px;
-            line-height: 1.5;
-            color: #141414;
+            size-adjust: 100%;
+            ascent-override: 90%;
+            descent-override: 22%;
+            line-gap-override: 0%;
         }
     </style>';
     
