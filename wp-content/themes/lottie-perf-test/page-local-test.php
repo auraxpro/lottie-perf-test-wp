@@ -80,7 +80,23 @@ get_header(); ?>
                         videoid="1121254619"
                         aspect-ratio="16/9"
                         poster="<?php echo get_template_directory_uri(); ?>/assets/images/vumbnail.jpg"
-                        style="width: 100%; height: 100%;">
+                        poster-alt="Meet Your New Sidekick video thumbnail"
+                        style="display:block;width:100%;height:100%;aspect-ratio:16/9;position:relative;overflow:hidden;border-radius:inherit;">
+                        <img
+                            src="<?php echo get_template_directory_uri(); ?>/assets/images/vumbnail.jpg"
+                            alt="Meet Your New Sidekick video thumbnail"
+                            decoding="async"
+                            loading="eager"
+                            fetchpriority="high"
+                            width="1440"
+                            height="810"
+                            data-lite-vimeo-fallback
+                            style="width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit;">
+                        <span aria-hidden="true" class="lite-vimeo-fallback-play" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+                            <span style="width:80px;height:80px;background:rgba(0,0,0,0.8);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="white" role="presentation"><path d="M8 5v14l11-7z"></path></svg>
+                            </span>
+                        </span>
                     </lite-vimeo>
                 </div>
                 <div class="wp-block-column assistant-text is-vertically-aligned-center">

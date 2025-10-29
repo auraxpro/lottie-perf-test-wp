@@ -35,8 +35,14 @@ class LiteVimeoEmbed extends HTMLElement {
   }
   
   createPoster() {
-    const posterUrl = this.poster || `https://vumbnail.com/${this.videoId}.jpg`;
-    const posterAlt = this.getAttribute('poster-alt') || 'Video thumbnail';
+    const fallbackSource = this.querySelector('[data-lite-vimeo-fallback]');
+    const posterAlt = this.getAttribute('poster-alt') || (fallbackSource ? fallbackSource.getAttribute('alt') : 'Video thumbnail');
+    const posterUrl = this.poster || (fallbackSource ? fallbackSource.getAttribute('src') : `https://vumbnail.com/${this.videoId}.jpg`);
+
+    let fallbackClone = null;
+    if (fallbackSource) {
+      fallbackClone = fallbackSource.cloneNode(true);
+    }
 
     // Reset the element content
     this.innerHTML = '';
@@ -57,7 +63,7 @@ class LiteVimeoEmbed extends HTMLElement {
       overflow: 'hidden'
     });
 
-    const posterImg = document.createElement('img');
+    let posterImg = fallbackClone || document.createElement('img');
     posterImg.src = posterUrl;
     posterImg.alt = posterAlt;
     posterImg.decoding = 'async';
@@ -69,11 +75,12 @@ class LiteVimeoEmbed extends HTMLElement {
     posterImg.style.position = 'absolute';
     posterImg.style.top = '0';
     posterImg.style.left = '0';
+    posterImg.style.borderRadius = 'inherit';
 
     const ratioParts = this.aspectRatio.split('/').map(Number);
     if (ratioParts.length === 2 && ratioParts.every(Number.isFinite)) {
-      const width = 1600;
-      const height = Math.round((width * ratioParts[1]) / ratioParts[0]);
+      const width = posterImg.width || 1600;
+      const height = posterImg.height || Math.round((width * ratioParts[1]) / ratioParts[0]);
       posterImg.width = width;
       posterImg.height = height;
     }
