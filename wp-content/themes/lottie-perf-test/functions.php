@@ -47,19 +47,80 @@ function lottie_perf_test_scripts() {
     if (in_array($template, $lottie_templates)) {
         add_action('wp_head', function() {
             $base_uri = get_template_directory_uri() . '/assets/js/';
-            $base_path = get_template_directory() . '/assets/js/';
-            $final_file = 'lottie-light.final.min.js';
-            $min_file = 'lottie-light.min.js';
-            $dev_file = 'lottie-light.js';
-            
-            // Use minimal lottie implementation (only 5KB vs 422KB)
-            $script = 'lottie-minimal.js';
-            
-            // Preload the JavaScript file
-            echo '<link rel="preload" href="' . esc_url($base_uri . $script) . '?ver=1.0.0" as="script" crossorigin>';
-            
-            // Load minimal Lottie implementation (5KB vs 422KB)
-            echo '<script src="' . esc_url($base_uri . $script) . '?ver=1.0.0" defer crossorigin></script>';
+            $script   = 'lottie-minimal.js';
+            $versioned_src = esc_url($base_uri . $script . '?ver=1.0.0');
+
+            // Preload the JavaScript file so it can be fetched early.
+            echo '<link rel="preload" href="' . $versioned_src . '" as="script" crossorigin>';
+
+            $script_src_json = wp_json_encode($versioned_src);
+
+            // Lazy-load the heavy Lottie bundle when it is actually needed.
+            echo '<script>
+                document.addEventListener("DOMContentLoaded", function() {
+                    var hasLoaded = false;
+                    var scriptSrc = ' . $script_src_json . ';
+
+                    function loadLottieScript() {
+                        if (hasLoaded) {
+                            return;
+                        }
+                        hasLoaded = true;
+
+                        var existing = document.querySelector("script[data-lpt-lottie]");
+                        if (existing) {
+                            return;
+                        }
+
+                        var s = document.createElement("script");
+                        s.src = scriptSrc;
+                        s.async = true;
+                        s.crossOrigin = "anonymous";
+                        s.setAttribute("data-lpt-lottie", "1");
+                        document.head.appendChild(s);
+                    }
+
+                    function scheduleIdleLoad() {
+                        if (hasLoaded) {
+                            return;
+                        }
+                        if ("requestIdleCallback" in window) {
+                            requestIdleCallback(function() {
+                                loadLottieScript();
+                            }, { timeout: 1500 });
+                        } else {
+                            setTimeout(loadLottieScript, 600);
+                        }
+                    }
+
+                    var players = document.querySelectorAll("dotlottie-player");
+                    if (!players.length) {
+                        scheduleIdleLoad();
+                        return;
+                    }
+
+                    if ("IntersectionObserver" in window) {
+                        var observer = new IntersectionObserver(function(entries, obs) {
+                            entries.forEach(function(entry) {
+                                if (entry.isIntersecting) {
+                                    loadLottieScript();
+                                    obs.disconnect();
+                                }
+                            });
+                        }, { rootMargin: "200px 0px" });
+
+                        players.forEach(function(player) {
+                            observer.observe(player);
+                        });
+
+                        window.addEventListener("load", function() {
+                            scheduleIdleLoad();
+                        }, { once: true });
+                    } else {
+                        scheduleIdleLoad();
+                    }
+                });
+            </script>';
         }, 3);
     }
 }
@@ -97,79 +158,118 @@ function lottie_perf_test_deferred_css_loading() {
     // Create combined CSS file if it doesn't exist
     lottie_perf_test_combine_css_files();
     
-    // Deferred CSS loading with preload + onload
-    echo '<script>
-    // Deferred CSS loading function
-    function loadCSS(href, media) {
-        var link = document.createElement("link");
-        link.rel = "preload";
-        link.as = "style";
-        link.href = href;
-        link.media = media || "all";
-        link.onload = function() { this.rel = "stylesheet"; };
-        document.head.appendChild(link);
+    $critical_css = array(
+        'main.style.min.css',
+        'style.min.css',
+        'mega-menu-style.min.css',
+    );
+
+    $async_css = array(
+        'accordion-tabsliderview.min.css',
+        'footer.min.css',
+    );
+
+    $lazy_css = array(
+        'blog-filter-style.min.css',
+        'cardRenderer.min.css',
+        'carousel.min.css',
+        'customer-cards-desktop.min.css',
+        'testimonial-card-mobile.min.css',
+        'customer-cards-mobile.min.css'
+    );
+
+    foreach ($critical_css as $index => $file) {
+        $path = $dist_dir . $file;
+        if (!file_exists($path)) {
+            continue;
+        }
+
+        $href = esc_url($dist_uri . $file);
+        $extra = $index === 0 ? ' fetchpriority="high"' : '';
+
+        echo '<link rel="stylesheet" href="' . $href . '" media="all"' . $extra . '>';
     }
-    
-    // Load CSS files in priority order
-    document.addEventListener("DOMContentLoaded", function() {
-        // Priority 1: Critical CSS files (load immediately)
-        var criticalCSS = [
-            "' . $dist_uri . 'main.style.min.css",
-            "' . $dist_uri . 'mega-menu-style.min.css"
-        ];
-        
-        // Priority 2: Important CSS files (load after critical)
-        var importantCSS = [
-            "' . $dist_uri . 'accordion-tabsliderview.min.css",
-            "' . $dist_uri . 'footer.min.css",
-            "' . $dist_uri . 'style.min.css"
-        ];
-        
-        // Priority 3: Additional CSS files (load last)
-        var additionalCSS = [
-            "' . $dist_uri . 'blog-filter-style.min.css",
-            "' . $dist_uri . 'cardRenderer.min.css",
-            "' . $dist_uri . 'carousel.min.css",
-            "' . $dist_uri . 'customer-cards-desktop.min.css",
-            "' . $dist_uri . 'testimonial-card-mobile.min.css",
-            "' . $dist_uri . 'customer-cards-mobile.min.css"
-        ];
-        
-        // Load critical CSS first
-        criticalCSS.forEach(function(css) {
-            loadCSS(css);
-        });
-        
-        // Load important CSS after a short delay
-        setTimeout(function() {
-            importantCSS.forEach(function(css) {
-                loadCSS(css);
-            });
-        }, 100);
-        
-        // Load additional CSS after another delay
-        setTimeout(function() {
-            additionalCSS.forEach(function(css) {
-                loadCSS(css);
-            });
-        }, 200);
-    });
-    </script>';
-    
-    // Noscript fallback for users with JavaScript disabled (prioritized order)
-    echo '<noscript>
-        <link rel="stylesheet" href="' . $dist_uri . 'main.style.min.css">
-        <link rel="stylesheet" href="' . $dist_uri . 'mega-menu-style.min.css">
-        <link rel="stylesheet" href="' . $dist_uri . 'accordion-tabsliderview.min.css">
-        <link rel="stylesheet" href="' . $dist_uri . 'footer.min.css">
-        <link rel="stylesheet" href="' . $dist_uri . 'style.min.css">
-        <link rel="stylesheet" href="' . $dist_uri . 'blog-filter-style.min.css">
-        <link rel="stylesheet" href="' . $dist_uri . 'cardRenderer.min.css">
-        <link rel="stylesheet" href="' . $dist_uri . 'carousel.min.css">
-        <link rel="stylesheet" href="' . $dist_uri . 'customer-cards-desktop.min.css">
-        <link rel="stylesheet" href="' . $dist_uri . 'testimonial-card-mobile.min.css">
-        <link rel="stylesheet" href="' . $dist_uri . 'customer-cards-mobile.min.css">
-    </noscript>';
+
+    foreach ($async_css as $file) {
+        if (!file_exists($dist_dir . $file)) {
+            continue;
+        }
+
+        $href = esc_url($dist_uri . $file);
+        echo '<link rel="preload" href="' . $href . '" as="style" onload="this.onload=null;this.rel=\'stylesheet\'" crossorigin>';
+    }
+
+    $lazy_css_urls = array();
+    foreach ($lazy_css as $file) {
+        if (!file_exists($dist_dir . $file)) {
+            continue;
+        }
+        $lazy_css_urls[] = esc_url($dist_uri . $file);
+    }
+
+    if (!empty($lazy_css_urls)) {
+        $lazy_css_json = wp_json_encode($lazy_css_urls);
+        ob_start();
+        ?>
+        <script>
+            (function() {
+                var cssQueue = <?php echo $lazy_css_json; ?>;
+                if (!cssQueue.length) {
+                    return;
+                }
+
+                function injectStylesheet(href) {
+                    if (document.querySelector('link[data-lpt-css="' + href + '"]')) {
+                        return;
+                    }
+                    var link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = href;
+                    link.crossOrigin = 'anonymous';
+                    link.setAttribute('data-lpt-css', href);
+                    document.head.appendChild(link);
+                }
+
+                function loadQueue() {
+                    cssQueue.forEach(function(href) {
+                        injectStylesheet(href);
+                    });
+                    cssQueue = [];
+                }
+
+                function scheduleLazyLoad() {
+                    if (!cssQueue.length) {
+                        return;
+                    }
+                    if ('requestIdleCallback' in window) {
+                        requestIdleCallback(function() {
+                            loadQueue();
+                        }, { timeout: 2500 });
+                    } else {
+                        setTimeout(loadQueue, 800);
+                    }
+                }
+
+                window.addEventListener('load', scheduleLazyLoad, { once: true });
+            })();
+        </script>
+        <?php
+        echo ob_get_clean();
+    }
+
+    $all_css = array_merge($critical_css, $async_css, $lazy_css);
+    $all_css = array_unique(array_filter($all_css));
+
+    if (!empty($all_css)) {
+        echo '<noscript>';
+        foreach ($all_css as $file) {
+            if (!file_exists($dist_dir . $file)) {
+                continue;
+            }
+            echo '<link rel="stylesheet" href="' . esc_url($dist_uri . $file) . '">';
+        }
+        echo '</noscript>';
+    }
 }
 add_action('wp_head', 'lottie_perf_test_deferred_css_loading', 15);
 
