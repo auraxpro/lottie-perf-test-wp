@@ -36,50 +36,86 @@ class LiteVimeoEmbed extends HTMLElement {
   
   createPoster() {
     const posterUrl = this.poster || `https://vumbnail.com/${this.videoId}.jpg`;
-    
-    this.innerHTML = `
-      <div class="lite-vimeo-poster" style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-image: url('${posterUrl}');
-        background-size: cover;
-        background-position: center;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: opacity 0.3s ease;
-      ">
-        <div class="play-button" style="
-          width: 80px;
-          height: 80px;
-          background: rgba(0, 0, 0, 0.8);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: transform 0.2s ease;
-        ">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        </div>
-      </div>
-    `;
-    
-    // Add hover effect
-    const playButton = this.querySelector('.play-button');
+    const posterAlt = this.getAttribute('poster-alt') || 'Video thumbnail';
+
+    // Reset the element content
+    this.innerHTML = '';
+
+    const posterWrapper = document.createElement('div');
+    posterWrapper.className = 'lite-vimeo-poster';
+    Object.assign(posterWrapper.style, {
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      width: '100%',
+      height: '100%',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'opacity 0.3s ease',
+      overflow: 'hidden'
+    });
+
+    const posterImg = document.createElement('img');
+    posterImg.src = posterUrl;
+    posterImg.alt = posterAlt;
+    posterImg.decoding = 'async';
+    posterImg.loading = 'eager';
+    posterImg.setAttribute('fetchpriority', 'high');
+    posterImg.style.width = '100%';
+    posterImg.style.height = '100%';
+    posterImg.style.objectFit = 'cover';
+    posterImg.style.position = 'absolute';
+    posterImg.style.top = '0';
+    posterImg.style.left = '0';
+
+    const ratioParts = this.aspectRatio.split('/').map(Number);
+    if (ratioParts.length === 2 && ratioParts.every(Number.isFinite)) {
+      const width = 1600;
+      const height = Math.round((width * ratioParts[1]) / ratioParts[0]);
+      posterImg.width = width;
+      posterImg.height = height;
+    }
+
+    const playButton = document.createElement('div');
+    playButton.className = 'play-button';
+    Object.assign(playButton.style, {
+      width: '80px',
+      height: '80px',
+      background: 'rgba(0, 0, 0, 0.8)',
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'transform 0.2s ease',
+      position: 'relative',
+      zIndex: '2'
+    });
+
+    const playIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    playIcon.setAttribute('width', '32');
+    playIcon.setAttribute('height', '32');
+    playIcon.setAttribute('viewBox', '0 0 24 24');
+    playIcon.setAttribute('fill', 'white');
+
+    const playPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    playPath.setAttribute('d', 'M8 5v14l11-7z');
+    playIcon.appendChild(playPath);
+
+    playButton.appendChild(playIcon);
+
+    posterWrapper.appendChild(posterImg);
+    posterWrapper.appendChild(playButton);
+    this.appendChild(posterWrapper);
+
     this.addEventListener('mouseenter', () => {
       playButton.style.transform = 'scale(1.1)';
     });
     this.addEventListener('mouseleave', () => {
       playButton.style.transform = 'scale(1)';
     });
-    
-    // Add click handler
+
     this.addEventListener('click', () => this.loadVideo());
   }
   
