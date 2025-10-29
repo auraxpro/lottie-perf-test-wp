@@ -738,7 +738,6 @@
             width: 100%
         }
     </style>
-    <link rel='stylesheet' id='wp-block-cover-css' href='https://tipalti.com/en-eu/wp-content/cache/flying-press/5d7a15a76ae6.style.min.css' media='all' />
     <style id='wp-block-post-content-inline-css'>
         .wp-block-post-content {
             display: flow-root
