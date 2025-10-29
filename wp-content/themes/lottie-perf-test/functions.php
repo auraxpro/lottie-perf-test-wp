@@ -487,7 +487,7 @@ function lottie_perf_test_critical_performance_optimizations() {
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/font/Inter-Medium-subset-v1.1.0.woff2" as="font" type="font/woff2" crossorigin>';
     
     // 4. PRELOAD CRITICAL VIMEO THUMBNAILS
-    echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/images/vumbnail.jpg" as="image" fetchpriority="high" imagesrcset="' . get_template_directory_uri() . '/assets/images/vumbnail.jpg.webp 1280w" imagesizes="100vw" crossorigin>';
+    echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/images/vumbnail.jpg" as="image" fetchpriority="high" imagesrcset="' . get_template_directory_uri() . '/assets/images/vumbnail.jpg 1280w" imagesizes="100vw" crossorigin>';
     
     
     // 5. INLINE CRITICAL CSS (under 3KB for above-the-fold content)
