@@ -711,8 +711,9 @@ function lottie_perf_test_critical_performance_optimizations() {
             margin-left: 0;
             margin-right: 0;
             box-sizing: border-box;
-            /* Reserve minimum height to prevent shifts */
-            min-height: 200px;
+            /* Reserve minimum height to prevent shifts (matches hero section)
+               522px is hero image height; use clamp to adapt across screens */
+            min-height: clamp(360px, 60vh, 522px);
         }
         
         .entry-content.wp-block-post-content.is-layout-constrained,
@@ -739,6 +740,7 @@ function lottie_perf_test_critical_performance_optimizations() {
             /* Reserve space to prevent layout shifts */
             padding: 0;
             margin: 0;
+            line-height: 60px;
         }
         
         /* Reserve space for search input */
