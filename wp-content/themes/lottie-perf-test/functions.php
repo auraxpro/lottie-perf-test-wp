@@ -27,6 +27,47 @@ function lottie_perf_test_setup() {
 }
 add_action('after_setup_theme', 'lottie_perf_test_setup');
 
+// CDN Configuration for Static Assets (GTmetrix optimization)
+// Set this constant in wp-config.php: define('LPT_CDN_URL', 'https://cdn.yourdomain.com');
+// Or use filter: add_filter('lottie_perf_test_cdn_url', function() { return 'https://cdn.yourdomain.com'; });
+function lottie_perf_test_get_cdn_url() {
+    // Check for constant first
+    if (defined('LPT_CDN_URL')) {
+        $cdn_constant = constant('LPT_CDN_URL');
+        if (!empty($cdn_constant)) {
+            return rtrim($cdn_constant, '/');
+        }
+    }
+    
+    // Check for filter
+    $cdn_url = apply_filters('lottie_perf_test_cdn_url', '');
+    if (!empty($cdn_url)) {
+        return rtrim($cdn_url, '/');
+    }
+    
+    return false;
+}
+
+// Replace asset URLs with CDN URLs when CDN is configured
+function lottie_perf_test_cdn_asset_url($url) {
+    $cdn_url = lottie_perf_test_get_cdn_url();
+    if (!$cdn_url) {
+        return $url;
+    }
+    
+    // Only replace URLs from this theme's assets
+    $theme_uri = get_template_directory_uri();
+    if (strpos($url, $theme_uri) === 0) {
+        // Replace theme URL with CDN URL
+        $url = str_replace($theme_uri, $cdn_url . '/wp-content/themes/' . get_template(), $url);
+    }
+    
+    return $url;
+}
+add_filter('style_loader_src', 'lottie_perf_test_cdn_asset_url', 10, 1);
+add_filter('script_loader_src', 'lottie_perf_test_cdn_asset_url', 10, 1);
+add_filter('theme_file_uri', 'lottie_perf_test_cdn_asset_url', 10, 1);
+
 // 7-Step Lottie Performance Optimization Scripts
 function lottie_perf_test_scripts() {
     // Get current page template
@@ -147,130 +188,76 @@ function page_styles_enqueue() {
 }
 add_action('wp_enqueue_scripts', 'page_styles_enqueue', 20);
 
-// DEFERRED CSS LOADING: Load non-critical CSS asynchronously using combined file
+// OPTIMIZED CSS LOADING: Fix critical request chains by combining CSS and parallel loading
+// This addresses GTmetrix "Avoid chaining critical requests" issue (8 CSS files in sequence)
 function lottie_perf_test_deferred_css_loading() {
     $dist_uri = get_template_directory_uri() . '/assets/dist/css/';
     $dist_dir = get_template_directory() . '/assets/dist/css/';
     
-    // Create combined CSS file if it doesn't exist
+    // Apply CDN URL if configured
+    $dist_uri = lottie_perf_test_cdn_asset_url($dist_uri);
+    
+    // Create combined CSS file for non-critical styles
     lottie_perf_test_combine_css_files();
     
-    $critical_css = array(
-        'main.style.min.css',
-        'style.min.css',
-        'mega-menu-style.min.css',
-    );
-
-    $async_css = array(
-        'accordion-tabsliderview.min.css',
-        'footer.min.css',
-    );
-
-    $lazy_css = array(
-        'blog-filter-style.min.css',
-        'cardRenderer.min.css',
-        'carousel.min.css',
-        'customer-cards-desktop.min.css',
-        'testimonial-card-mobile.min.css',
-        'customer-cards-mobile.min.css'
-    );
-
-    foreach ($critical_css as $index => $file) {
-        $path = $dist_dir . $file;
-        if (!file_exists($path)) {
-            continue;
-        }
-
-        $href = esc_url($dist_uri . $file);
-        $priority_attr = $index === 0 ? ' fetchpriority="high" importance="high"' : '';
-
-        if ($file === 'main.style.min.css') {
-            echo '<link rel="stylesheet" href="' . $href . '" media="all"' . $priority_attr . ' crossorigin="anonymous">';
-        } else {
-            echo '<link rel="preload" href="' . $href . '" as="style" onload="this.onload=null;this.rel=\'stylesheet\'" media="all"' . $priority_attr . ' crossorigin="anonymous">';
-        }
+    // Only load main critical CSS file - everything else is deferred/combined
+    // This eliminates the 8-file CSS chain
+    $critical_css_file = 'main.style.min.css';
+    $critical_path = $dist_dir . $critical_css_file;
+    
+    if (file_exists($critical_path)) {
+        $href = esc_url($dist_uri . $critical_css_file);
+        // Load critical CSS with high priority, no chaining
+        echo '<link rel="stylesheet" href="' . $href . '" media="all" fetchpriority="high" crossorigin="anonymous">';
     }
-
-    foreach ($async_css as $file) {
-        if (!file_exists($dist_dir . $file)) {
-            continue;
-        }
-
-        $href = esc_url($dist_uri . $file);
-        echo '<link rel="preload" href="' . $href . '" as="style" onload="this.onload=null;this.rel=\'stylesheet\'" crossorigin>';
-    }
-
-    $lazy_css_urls = array();
-    foreach ($lazy_css as $file) {
-        if (!file_exists($dist_dir . $file)) {
-            continue;
-        }
-        $lazy_css_urls[] = esc_url($dist_uri . $file);
-    }
-
-    if (!empty($lazy_css_urls)) {
-        $lazy_css_json = wp_json_encode($lazy_css_urls);
-        ob_start();
-        ?>
-        <script>
-            (function() {
-                var cssQueue = <?php echo $lazy_css_json; ?>;
-                if (!cssQueue.length) {
-                    return;
-                }
-
-                function injectStylesheet(href) {
-                    if (document.querySelector('link[data-lpt-css="' + href + '"]')) {
-                        return;
-                    }
-                    var link = document.createElement('link');
-                    link.rel = 'stylesheet';
-                    link.href = href;
-                    link.crossOrigin = 'anonymous';
-                    link.setAttribute('data-lpt-css', href);
-                    document.head.appendChild(link);
-                }
-
-                function loadQueue() {
-                    cssQueue.forEach(function(href) {
-                        injectStylesheet(href);
-                    });
-                    cssQueue = [];
-                }
-
-                function scheduleLazyLoad() {
-                    if (!cssQueue.length) {
-                        return;
-                    }
-                    if ('requestIdleCallback' in window) {
-                        requestIdleCallback(function() {
-                            loadQueue();
-                        }, { timeout: 2500 });
-                    } else {
-                        setTimeout(loadQueue, 800);
-                    }
-                }
-
-                window.addEventListener('load', scheduleLazyLoad, { once: true });
-            })();
-        </script>
-        <?php
-        echo ob_get_clean();
-    }
-
-    $all_css = array_merge($critical_css, $async_css, $lazy_css);
-    $all_css = array_unique(array_filter($all_css));
-
-    if (!empty($all_css)) {
-        echo '<noscript>';
-        foreach ($all_css as $file) {
-            if (!file_exists($dist_dir . $file)) {
+    
+    // Combine all non-critical CSS into one file to avoid chaining
+    $combined_file = 'combined.min.css';
+    $combined_path = $dist_dir . $combined_file;
+    
+    if (file_exists($combined_path)) {
+        $combined_href = esc_url($dist_uri . $combined_file);
+        // Preload combined CSS and load it asynchronously - single request instead of 7 chained requests
+        echo '<link rel="preload" href="' . $combined_href . '" as="style" onload="this.onload=null;this.rel=\'stylesheet\'" crossorigin="anonymous">';
+        echo '<noscript><link rel="stylesheet" href="' . $combined_href . '"></noscript>';
+    } else {
+        // Fallback: If combined file doesn't exist, load non-critical CSS in parallel (not chained)
+        $non_critical_css = array(
+            'style.min.css',
+            'mega-menu-style.min.css',
+            'accordion-tabsliderview.min.css',
+            'footer.min.css',
+            'blog-filter-style.min.css',
+            'cardRenderer.min.css',
+            'carousel.min.css',
+            'customer-cards-desktop.min.css',
+            'testimonial-card-mobile.min.css',
+            'customer-cards-mobile.min.css'
+        );
+        
+        // Preload all non-critical CSS files in parallel (no dependencies/chaining)
+        foreach ($non_critical_css as $file) {
+            $path = $dist_dir . $file;
+            if (!file_exists($path)) {
                 continue;
             }
-            echo '<link rel="stylesheet" href="' . esc_url($dist_uri . $file) . '">';
+            $href = esc_url($dist_uri . $file);
+            // Preload with same priority - browser will fetch in parallel
+            echo '<link rel="preload" href="' . $href . '" as="style" onload="this.onload=null;this.rel=\'stylesheet\'" crossorigin="anonymous">';
+        }
+        
+        // Fallback for browsers without JavaScript
+        echo '<noscript>';
+        foreach ($non_critical_css as $file) {
+            if (file_exists($dist_dir . $file)) {
+                echo '<link rel="stylesheet" href="' . esc_url($dist_uri . $file) . '">';
+            }
         }
         echo '</noscript>';
     }
+    
+    // Add polyfill for onload event (for older browsers)
+    echo '<script>!function(e){"use strict";var t=function(t,n,o){var i,r=e.document,a=r.createElement("link");if(o)i=o;else{var l=(r.body||r.getElementsByTagName("head")[0]).childNodes;i=l[l.length-1]}var d=r.styleSheets;a.rel="stylesheet",a.href=t,a.media="only x",function e(t){if(r.body)return t();setTimeout(function(){e(t)})}(function(){i.parentNode.insertBefore(a,o?i:i.nextSibling)});var f=function(e){for(var t=a.href,n=d.length;n--;)if(d[n].href===t)return e();setTimeout(function(){f(e)})};return a.addEventListener&&a.addEventListener("load",function(){this.media=o||"all"}),a.onloadcssdefined=f,f(function(){a.media!==o&&(a.media=o)}),a};"undefined"!=typeof exports?exports.loadCSS=t:e.loadCSS=t}("undefined"!=typeof global?global:this);</script>';
 }
 add_action('wp_head', 'lottie_perf_test_deferred_css_loading', 15);
 
@@ -448,6 +435,72 @@ function lottie_perf_test_handle_static_files() {
     }
 }
 add_action('init', 'lottie_perf_test_handle_static_files', 1);
+
+// PERFORMANCE OPTIMIZATION: Page Caching to Reduce TTFB (3.0s -> <500ms)
+// This addresses GTmetrix "High Initial Server Response Time" issue
+function lottie_perf_test_page_cache() {
+    // Skip caching for admin, logged-in users, and dynamic requests
+    if (is_admin() || is_user_logged_in() || defined('DOING_AJAX') || defined('DOING_CRON')) {
+        return;
+    }
+    
+    // Skip caching for POST requests
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        return;
+    }
+    
+    // Skip caching for query strings (except common ones like utm_source)
+    $query_string = $_SERVER['QUERY_STRING'] ?? '';
+    if (!empty($query_string) && !preg_match('/^(utm_|ref=|fbclid=|gclid=)/i', $query_string)) {
+        return;
+    }
+    
+    // Create cache key based on request URI
+    $cache_key = 'lpt_page_cache_' . md5($_SERVER['REQUEST_URI'] . (is_ssl() ? '_ssl' : ''));
+    
+    // Try to get cached page
+    $cached_page = get_transient($cache_key);
+    
+    if ($cached_page !== false) {
+        // Serve cached page with proper headers
+        header('X-Cache: HIT');
+        header('Cache-Control: public, max-age=3600');
+        header('Vary: Accept-Encoding');
+        
+        // Add compression if available
+        if (extension_loaded('zlib') && !ob_get_level()) {
+            ob_start('ob_gzhandler');
+        }
+        
+        echo $cached_page;
+        exit;
+    }
+    
+    // Start output buffering to capture page content
+    ob_start(function($buffer) use ($cache_key) {
+        // Only cache successful responses
+        if (http_response_code() === 200 && !headers_sent()) {
+            // Cache for 1 hour (3600 seconds)
+            set_transient($cache_key, $buffer, 3600);
+        }
+        return $buffer;
+    });
+}
+add_action('template_redirect', 'lottie_perf_test_page_cache', 1);
+
+// Clear page cache on post/page updates
+function lottie_perf_test_clear_page_cache($post_id) {
+    // Clear all page cache transients
+    global $wpdb;
+    $wpdb->query(
+        "DELETE FROM {$wpdb->options} 
+         WHERE option_name LIKE '_transient_lpt_page_cache_%' 
+         OR option_name LIKE '_transient_timeout_lpt_page_cache_%'"
+    );
+}
+add_action('save_post', 'lottie_perf_test_clear_page_cache');
+add_action('edit_post', 'lottie_perf_test_clear_page_cache');
+add_action('delete_post', 'lottie_perf_test_clear_page_cache');
 
 // PERFORMANCE OPTIMIZATION: Compression and caching headers
 function lottie_perf_test_performance_optimizations() {
@@ -897,29 +950,30 @@ function lottie_perf_test_dashboard() {
     echo '</div>';
 }
 
-// PERFORMANCE OPTIMIZATION: Combine small CSS files into one bundle
+// PERFORMANCE OPTIMIZATION: Combine non-critical CSS files into one bundle (fixes chaining)
+// Excludes main.style.min.css which is loaded separately as critical CSS
 function lottie_perf_test_combine_css_files() {
     $dist_dir = get_template_directory() . '/assets/dist/css/';
     $combined_file = $dist_dir . 'combined.min.css';
+    
+    // Non-critical CSS files to combine (excludes main.style.min.css which is critical)
+    $css_files = array(
+        'style.min.css',
+        'mega-menu-style.min.css',
+        'accordion-tabsliderview.min.css',
+        'footer.min.css',
+        'blog-filter-style.min.css',
+        'cardRenderer.min.css',
+        'carousel.min.css',
+        'customer-cards-desktop.min.css',
+        'testimonial-card-mobile.min.css',
+        'customer-cards-mobile.min.css'
+    );
     
     // Check if combined file exists and is newer than individual files
     if (file_exists($combined_file)) {
         $combined_time = filemtime($combined_file);
         $needs_rebuild = false;
-        
-        $css_files = array(
-            'main.style.min.css',
-            'accordion-tabsliderview.min.css',
-            'mega-menu-style.min.css',
-            'footer.min.css',
-            'style.min.css',
-            'blog-filter-style.min.css',
-            'cardRenderer.min.css',
-            'carousel.min.css',
-            'customer-cards-desktop.min.css',
-            'testimonial-card-mobile.min.css',
-            'customer-cards-mobile.min.css'
-        );
         
         foreach ($css_files as $file) {
             $file_path = $dist_dir . $file;
@@ -934,21 +988,8 @@ function lottie_perf_test_combine_css_files() {
         }
     }
     
-    // Create combined CSS file
+    // Create combined CSS file (non-critical only)
     $combined_css = '';
-    $css_files = array(
-        'main.style.min.css',
-        'accordion-tabsliderview.min.css',
-        'mega-menu-style.min.css',
-        'footer.min.css',
-        'style.min.css',
-        'blog-filter-style.min.css',
-        'cardRenderer.min.css',
-        'carousel.min.css',
-        'customer-cards-desktop.min.css',
-        'testimonial-card-mobile.min.css',
-        'customer-cards-mobile.min.css'
-    );
     
     foreach ($css_files as $file) {
         $file_path = $dist_dir . $file;
@@ -963,6 +1004,11 @@ function lottie_perf_test_combine_css_files() {
     $combined_css = preg_replace('/\s+/', ' ', $combined_css);
     $combined_css = preg_replace('/\/\*.*?\*\//', '', $combined_css);
     $combined_css = str_replace(array('; ', ' {', '{ ', ' }', '} ', ': '), array(';', '{', '{', '}', '}', ':'), $combined_css);
+    
+    // Ensure directory exists
+    if (!is_dir($dist_dir)) {
+        wp_mkdir_p($dist_dir);
+    }
     
     file_put_contents($combined_file, $combined_css);
 }
