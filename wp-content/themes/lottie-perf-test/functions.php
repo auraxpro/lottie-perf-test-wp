@@ -27,6 +27,61 @@ function lottie_perf_test_setup() {
 }
 add_action('after_setup_theme', 'lottie_perf_test_setup');
 
+// PERFORMANCE OPTIMIZATION: Reduce WordPress overhead to improve TTFB
+// Disable unnecessary WordPress features that slow down page load
+function lottie_perf_test_reduce_overhead() {
+    if (!is_admin()) {
+        // Disable emoji scripts (saves HTTP requests)
+        remove_action('wp_head', 'print_emoji_detection_script', 7);
+        remove_action('wp_print_styles', 'print_emoji_styles');
+        remove_action('admin_print_scripts', 'print_emoji_detection_script');
+        remove_action('admin_print_styles', 'print_emoji_styles');
+        
+        // Disable embed scripts (saves HTTP requests)
+        remove_action('wp_head', 'wp_oembed_add_discovery_links');
+        remove_action('wp_head', 'wp_oembed_add_host_js');
+        
+        // Disable WordPress version from head (security + performance)
+        remove_action('wp_head', 'wp_generator');
+        
+        // Disable REST API links in head (saves HTTP requests)
+        remove_action('wp_head', 'rest_output_link_wp_head');
+        remove_action('wp_head', 'wp_shortlink_wp_head');
+        
+        // Disable RSS feed links (if not needed)
+        remove_action('wp_head', 'rsd_link');
+        remove_action('wp_head', 'wlwmanifest_link');
+        
+        // Disable block editor CSS (we're handling CSS separately)
+        remove_action('wp_enqueue_scripts', 'wp_common_block_scripts_and_styles');
+    }
+}
+add_action('init', 'lottie_perf_test_reduce_overhead', 1);
+
+// PERFORMANCE OPTIMIZATION: Optimize database queries
+function lottie_perf_test_optimize_queries() {
+    if (!is_admin()) {
+        // Note: These should be defined in wp-config.php for best performance
+        // Disabling post revisions reduces database overhead
+        // Reducing autosave interval reduces database writes
+    }
+}
+add_action('init', 'lottie_perf_test_optimize_queries', 1);
+
+// PERFORMANCE OPTIMIZATION: Early output buffering with compression
+function lottie_perf_test_early_compression() {
+    if (!is_admin() && !headers_sent()) {
+        // Enable compression early
+        if (extension_loaded('zlib') && !ob_get_level()) {
+            ob_start('ob_gzhandler');
+        }
+        
+        // Set compression headers
+        header('Vary: Accept-Encoding');
+    }
+}
+add_action('init', 'lottie_perf_test_early_compression', 1);
+
 // CDN Configuration for Static Assets (GTmetrix optimization)
 // Set this constant in wp-config.php: define('LPT_CDN_URL', 'https://cdn.yourdomain.com');
 // Or use filter: add_filter('lottie_perf_test_cdn_url', function() { return 'https://cdn.yourdomain.com'; });
@@ -447,7 +502,7 @@ function lottie_perf_test_handle_static_files() {
 }
 add_action('init', 'lottie_perf_test_handle_static_files', 1);
 
-// PERFORMANCE OPTIMIZATION: Page Caching to Reduce TTFB (3.0s -> <500ms)
+// PERFORMANCE OPTIMIZATION: File-Based Page Caching to Reduce TTFB (3.0s -> <500ms)
 // This addresses GTmetrix "High Initial Server Response Time" issue
 function lottie_perf_test_page_cache() {
     // Skip caching for admin, logged-in users, and dynamic requests
@@ -466,52 +521,102 @@ function lottie_perf_test_page_cache() {
         return;
     }
     
-    // Create cache key based on request URI
-    $cache_key = 'lpt_page_cache_' . md5($_SERVER['REQUEST_URI'] . (is_ssl() ? '_ssl' : ''));
-    
-    // Try to get cached page
-    $cached_page = get_transient($cache_key);
-    
-    if ($cached_page !== false) {
-        // Serve cached page with proper headers
-        header('X-Cache: HIT');
-        header('Cache-Control: public, max-age=3600');
-        header('Vary: Accept-Encoding');
-        
-        // Add compression if available
-        if (extension_loaded('zlib') && !ob_get_level()) {
-            ob_start('ob_gzhandler');
-        }
-        
-        echo $cached_page;
-        exit;
+    // Create cache directory
+    $cache_dir = WP_CONTENT_DIR . '/cache/page-cache/';
+    if (!is_dir($cache_dir)) {
+        wp_mkdir_p($cache_dir);
     }
     
-    // Start output buffering to capture page content
-    ob_start(function($buffer) use ($cache_key) {
+    // Generate cache key from request URI
+    $cache_key = md5($_SERVER['REQUEST_URI'] . (is_ssl() ? '_ssl' : ''));
+    $cache_file = $cache_dir . $cache_key . '.html';
+    $cache_meta = $cache_dir . $cache_key . '.meta';
+    
+    // Check if cache exists and is valid (1 hour cache)
+    if (file_exists($cache_file) && file_exists($cache_meta)) {
+        $cache_time = filemtime($cache_file);
+        $cache_age = time() - $cache_time;
+        
+        // Cache is valid for 1 hour (3600 seconds)
+        if ($cache_age < 3600) {
+            // Read cache metadata
+            $meta = @json_decode(file_get_contents($cache_meta), true);
+            
+            // Set headers
+            if (!headers_sent()) {
+                header('Content-Type: text/html; charset=UTF-8');
+                header('X-Cache: HIT');
+                header('Cache-Control: public, max-age=3600');
+                header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 3600) . ' GMT');
+                header('Vary: Accept-Encoding');
+                
+                if (isset($meta['etag'])) {
+                    header('ETag: "' . $meta['etag'] . '"');
+                }
+                
+                // Check if client has cached version
+                if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && $_SERVER['HTTP_IF_NONE_MATCH'] === '"' . $meta['etag'] . '"') {
+                    header('HTTP/1.1 304 Not Modified');
+                    exit;
+                }
+            }
+            
+            // Output cached content
+            readfile($cache_file);
+            exit;
+        }
+    }
+    
+    // Cache miss - start output buffering to capture page content
+    ob_start(function($buffer) use ($cache_file, $cache_meta) {
         // Only cache successful responses
         if (http_response_code() === 200 && !headers_sent()) {
-            // Cache for 1 hour (3600 seconds)
-            set_transient($cache_key, $buffer, 3600);
+            // Create cache directory if it doesn't exist
+            $cache_dir = dirname($cache_file);
+            if (!is_dir($cache_dir)) {
+                wp_mkdir_p($cache_dir);
+            }
+            
+            // Generate ETag for cache validation
+            $etag = md5($buffer);
+            
+            // Save cached page
+            @file_put_contents($cache_file, $buffer);
+            
+            // Save cache metadata
+            @file_put_contents($cache_meta, json_encode(array(
+                'etag' => $etag,
+                'created' => time(),
+                'size' => strlen($buffer)
+            )));
+            
+            // Set cache headers
+            header('X-Cache: MISS');
+            header('Cache-Control: public, max-age=3600');
+            header('ETag: "' . $etag . '"');
         }
+        
         return $buffer;
     });
 }
 add_action('template_redirect', 'lottie_perf_test_page_cache', 1);
 
-// Clear page cache on post/page updates
+// Clear file-based page cache on post/page updates
 function lottie_perf_test_clear_page_cache($post_id) {
-    // Clear all page cache transients
-    global $wpdb;
-    $wpdb->query(
-        "DELETE FROM {$wpdb->options} 
-         WHERE option_name LIKE '_transient_lpt_page_cache_%' 
-         OR option_name LIKE '_transient_timeout_lpt_page_cache_%'"
-    );
+    // Clear all page cache files
+    $cache_dir = WP_CONTENT_DIR . '/cache/page-cache/';
+    if (is_dir($cache_dir)) {
+        $files = glob($cache_dir . '*.{html,meta}', GLOB_BRACE);
+        foreach ($files as $file) {
+            @unlink($file);
+        }
+    }
 }
 add_action('save_post', 'lottie_perf_test_clear_page_cache');
 add_action('edit_post', 'lottie_perf_test_clear_page_cache');
 add_action('delete_post', 'lottie_perf_test_clear_page_cache');
+add_action('switch_theme', 'lottie_perf_test_clear_page_cache');
+add_action('customize_save_after', 'lottie_perf_test_clear_page_cache');
 
 // PERFORMANCE OPTIMIZATION: Compression and caching headers
 function lottie_perf_test_performance_optimizations() {
