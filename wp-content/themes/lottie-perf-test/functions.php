@@ -336,6 +336,17 @@ function lottie_perf_test_trim_core_assets() {
 }
 add_action('wp_enqueue_scripts', 'lottie_perf_test_trim_core_assets', 1); // Changed priority to 1 to run earlier
 
+// HARD STOP: Deregister block library styles at registration time so they never print
+function lottie_perf_test_wp_default_styles( $styles ) {
+    // Remove core block styles that trigger late network CSS (common.min.css)
+    $styles->remove( 'wp-block-library' );
+    $styles->remove( 'wp-block-library-theme' );
+    $styles->remove( 'global-styles' );
+    $styles->remove( 'classic-theme-styles' );
+    $styles->remove( 'core-block-supports' );
+}
+add_action( 'wp_default_styles', 'lottie_perf_test_wp_default_styles', 1 );
+
 // CRITICAL: Prevent WordPress from enqueueing block library CSS that causes layout shifts
 // This must run before WordPress enqueues styles
 function lottie_perf_test_prevent_block_library_css() {
