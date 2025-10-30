@@ -188,8 +188,8 @@ function page_styles_enqueue() {
 }
 add_action('wp_enqueue_scripts', 'page_styles_enqueue', 20);
 
-// OPTIMIZED CSS LOADING: Fix critical request chains by combining CSS and parallel loading
-// This addresses GTmetrix "Avoid chaining critical requests" issue (8 CSS files in sequence)
+// OPTIMIZED CSS LOADING: Fix critical request chains AND layout shifts (CLS)
+// This addresses GTmetrix "Avoid chaining critical requests" and "Avoid large layout shifts" issues
 function lottie_perf_test_deferred_css_loading() {
     $dist_uri = get_template_directory_uri() . '/assets/dist/css/';
     $dist_dir = get_template_directory() . '/assets/dist/css/';
@@ -200,15 +200,15 @@ function lottie_perf_test_deferred_css_loading() {
     // Create combined CSS file for non-critical styles
     lottie_perf_test_combine_css_files();
     
-    // Only load main critical CSS file - everything else is deferred/combined
-    // This eliminates the 8-file CSS chain
+    // CRITICAL: Inline main.style.min.css to prevent layout shifts (CLS: 0.38)
+    // This ensures CSS loads before any content renders, eliminating layout shifts
     $critical_css_file = 'main.style.min.css';
     $critical_path = $dist_dir . $critical_css_file;
     
     if (file_exists($critical_path)) {
-        $href = esc_url($dist_uri . $critical_css_file);
-        // Load critical CSS with high priority, no chaining
-        echo '<link rel="stylesheet" href="' . $href . '" media="all" fetchpriority="high" crossorigin="anonymous">';
+        $critical_css_content = file_get_contents($critical_path);
+        // Inline critical CSS directly in <head> to prevent layout shifts
+        echo '<style id="lpt-critical-css">' . $critical_css_content . '</style>';
     }
     
     // Combine all non-critical CSS into one file to avoid chaining
@@ -259,12 +259,13 @@ function lottie_perf_test_deferred_css_loading() {
     // Add polyfill for onload event (for older browsers)
     echo '<script>!function(e){"use strict";var t=function(t,n,o){var i,r=e.document,a=r.createElement("link");if(o)i=o;else{var l=(r.body||r.getElementsByTagName("head")[0]).childNodes;i=l[l.length-1]}var d=r.styleSheets;a.rel="stylesheet",a.href=t,a.media="only x",function e(t){if(r.body)return t();setTimeout(function(){e(t)})}(function(){i.parentNode.insertBefore(a,o?i:i.nextSibling)});var f=function(e){for(var t=a.href,n=d.length;n--;)if(d[n].href===t)return e();setTimeout(function(){f(e)})};return a.addEventListener&&a.addEventListener("load",function(){this.media=o||"all"}),a.onloadcssdefined=f,f(function(){a.media!==o&&(a.media=o)}),a};"undefined"!=typeof exports?exports.loadCSS=t:e.loadCSS=t}("undefined"!=typeof global?global:this);</script>';
 }
-add_action('wp_head', 'lottie_perf_test_deferred_css_loading', 15);
+add_action('wp_head', 'lottie_perf_test_deferred_css_loading', 10); // Changed priority to 10 to load earlier
 
-// Trim unused WordPress core assets to prevent extra render-blocking CSS
+// Trim unused WordPress core assets to prevent extra render-blocking CSS AND layout shifts
 function lottie_perf_test_trim_core_assets() {
     if (!is_admin()) {
         $styles = array(
+            'wp-block-library', // CRITICAL: Remove this to prevent common.min.css layout shifts
             'wp-block-library-theme',
             'global-styles',
             'classic-theme-styles',
@@ -278,7 +279,17 @@ function lottie_perf_test_trim_core_assets() {
         }
     }
 }
-add_action('wp_enqueue_scripts', 'lottie_perf_test_trim_core_assets', 100);
+add_action('wp_enqueue_scripts', 'lottie_perf_test_trim_core_assets', 1); // Changed priority to 1 to run earlier
+
+// CRITICAL: Prevent WordPress from enqueueing block library CSS that causes layout shifts
+// This must run before WordPress enqueues styles
+function lottie_perf_test_prevent_block_library_css() {
+    if (!is_admin()) {
+        // Remove the action that enqueues block library CSS
+        remove_action('wp_enqueue_scripts', 'wp_common_block_scripts_and_styles');
+    }
+}
+add_action('init', 'lottie_perf_test_prevent_block_library_css', 1);
 
 // Add debugging and critical accordion layout fixes
 add_action('wp_head', function() {
