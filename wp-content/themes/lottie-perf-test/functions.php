@@ -643,6 +643,7 @@ function lottie_perf_test_performance_optimizations() {
 add_action('wp_head', 'lottie_perf_test_performance_optimizations', 1);
 
 // PERFORMANCE OPTIMIZATION: Critical CSS, Preconnects, and Resource Hints
+// This MUST load FIRST (priority 0) to prevent layout shifts
 function lottie_perf_test_critical_performance_optimizations() {
     // 1. PRECONNECT & PREFETCH KEY ORIGINS
     echo '<link rel="preconnect" href="https://tipalti.com" crossorigin>';
@@ -654,32 +655,128 @@ function lottie_perf_test_critical_performance_optimizations() {
     // 2. PRELOAD HERO IMAGE WITH FETCH PRIORITY
     echo '<link rel="preload" as="image" href="' . get_template_directory_uri() . '/assets/images/Tipalti-AI-Header.jpg.webp" fetchpriority="high" imagesrcset="' . get_template_directory_uri() . '/assets/images/Tipalti-AI-Header.jpg.webp 1440w" imagesizes="100vw">';
     
-    // 3. PRELOAD CRITICAL FONTS
+    // 3. PRELOAD CRITICAL FONTS (with font-display: optional to prevent layout shifts)
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/font/Inter-Regular-subset-v1.1.0.woff2" as="font" type="font/woff2" crossorigin>';
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/font/Inter-Medium-subset-v1.1.0.woff2" as="font" type="font/woff2" crossorigin>';
     
     // 4. PRELOAD CRITICAL VIMEO THUMBNAILS
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/images/vumbnail.jpg" as="image" fetchpriority="high" imagesrcset="' . get_template_directory_uri() . '/assets/images/vumbnail.jpg 1280w" imagesizes="100vw" crossorigin>';
     
-    
-    // 5. INLINE CRITICAL CSS (under 3KB for above-the-fold content)
-    echo '<style>
-        /* Critical CSS for FCP/LCP optimization */
+    // 5. CRITICAL CSS - MUST LOAD FIRST to prevent layout shifts (CLS: 0.37)
+    // This prevents the 0.37 layout shift in entry-content div
+    echo '<style id="lpt-critical-layout-css">
+        /* Prevent layout shifts - Critical CSS for CLS optimization */
         html {
             scroll-behavior: smooth;
         }
-        body, header, .hero-section, .wp-block-cover {
-            margin: 0; 
-            padding: 0;
-            background: #fff;
-            font-display: swap;
-        }
+        
+        /* Reserve space for body and prevent shifts */
         body {
             font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 16px;
             line-height: 1.5;
             color: #141414;
+            margin: 0;
+            padding: 0;
+            background: #fff;
+            /* Prevent font layout shifts */
+            font-display: optional;
         }
+        
+        /* CRITICAL: Reserve space for entry-content to prevent 0.37 CLS */
+        .entry-content,
+        .wp-block-post-content,
+        .entry-content.wp-block-post-content,
+        .entry-content.wp-block-post-content.has-global-padding,
+        .entry-content.wp-block-post-content.is-layout-constrained {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            padding-left: 0;
+            padding-right: 0;
+            margin-left: 0;
+            margin-right: 0;
+            box-sizing: border-box;
+            /* Reserve minimum height to prevent shifts */
+            min-height: 200px;
+        }
+        
+        .entry-content.wp-block-post-content.is-layout-constrained,
+        .wp-block-post-content.is-layout-constrained {
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .entry-content.wp-block-post-content.has-global-padding,
+        .wp-block-post-content.has-global-padding {
+            padding-left: clamp(1.5rem, 5vw, 3rem);
+            padding-right: clamp(1.5rem, 5vw, 3rem);
+        }
+        
+        /* CRITICAL: Reserve space for navigation to prevent shifts */
+        nav.main-nav,
+        .main-nav {
+            display: flex;
+            align-items: center;
+            min-height: 60px;
+            width: 100%;
+            box-sizing: border-box;
+            /* Reserve space to prevent layout shifts */
+            padding: 0;
+            margin: 0;
+        }
+        
+        /* Reserve space for search input */
+        input.js-search-input,
+        input.input-search {
+            min-height: 40px;
+            box-sizing: border-box;
+        }
+        
+        /* Reserve space for wp-block-group */
+        .wp-block-group {
+            display: block;
+            box-sizing: border-box;
+        }
+        
+        .wp-block-group.has-global-padding {
+            padding-left: clamp(1.5rem, 5vw, 3rem);
+            padding-right: clamp(1.5rem, 5vw, 3rem);
+        }
+        
+        /* Font face with font-display: optional to prevent layout shifts */
+        @font-face {
+            font-family: "Inter";
+            src: url("' . get_template_directory_uri() . '/assets/font/Inter-Regular-subset-v1.1.0.woff2") format("woff2");
+            font-weight: 400;
+            font-style: normal;
+            font-display: optional; /* Prevents layout shifts by using fallback immediately */
+            size-adjust: 100%;
+            ascent-override: 90%;
+            descent-override: 22%;
+            line-gap-override: 0%;
+        }
+        
+        @font-face {
+            font-family: "Inter";
+            src: url("' . get_template_directory_uri() . '/assets/font/Inter-Medium-subset-v1.1.0.woff2") format("woff2");
+            font-weight: 500;
+            font-style: normal;
+            font-display: optional; /* Prevents layout shifts by using fallback immediately */
+            size-adjust: 100%;
+            ascent-override: 90%;
+            descent-override: 22%;
+            line-gap-override: 0%;
+        }
+        
+        /* Base styles to prevent shifts */
+        header, .hero-section, .wp-block-cover {
+            margin: 0; 
+            padding: 0;
+            background: #fff;
+        }
+        
         .hero-section, .wp-block-cover {
             display: flex; 
             align-items: center; 
@@ -688,24 +785,29 @@ function lottie_perf_test_critical_performance_optimizations() {
             overflow: hidden;
             aspect-ratio: 1440 / 522;
         }
+        
         .wp-block-cover__image-background {
             width: 100%; 
             height: auto; 
             object-fit: cover;
         }
+        
         .wp-block-cover__inner-container {
             position: relative;
             z-index: 2;
         }
+        
         .wp-block-heading {
             font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-weight: 500;
             line-height: 1.2;
         }
+        
         .wp-block-buttons {
             display: flex;
             gap: 1rem;
         }
+        
         .wp-block-button__link {
             display: inline-block;
             padding: 16px 24px;
@@ -714,20 +816,24 @@ function lottie_perf_test_critical_performance_optimizations() {
             font-weight: 500;
             transition: all 0.3s ease;
         }
+        
         .is-style-secondary .wp-block-button__link {
             background: #4d62d3;
             color: white;
             border: none;
         }
+        
         .is-style-secondary .wp-block-button__link:hover {
             background: #3d52c3;
         }
+        
         /* Prevent layout shift */
         dotlottie-player {
             width: 100%;
             height: 400px;
             display: block;
         }
+        
         /* Critical accordion styles */
         .accordion-tab__slider-wrapper {
             display: flex;
@@ -738,12 +844,15 @@ function lottie_perf_test_critical_performance_optimizations() {
             border-radius: 64px;
             box-shadow: 0 4px 16px 0 rgba(0,0,0,0.1);
         }
+        
         .accordion-tab__slider-wrapper .slider-left {
             flex: 1;
         }
+        
         .accordion-tab__slider-wrapper .slider-right {
             flex: 1;
         }
+        
         .accordion-tab__slider-wrapper .pagination-item h3 {
             display: block;
             cursor: pointer;
@@ -752,27 +861,24 @@ function lottie_perf_test_critical_performance_optimizations() {
             color: #6c6c6c;
             transition: all 0.4s ease;
         }
+        
         .accordion-tab__slider-wrapper .pagination-item h3:hover {
             color: #141414;
         }
+        
         .accordion-tab__slider-wrapper .pagination-item.active-item h3 {
             color: #141414;
         }
+        
         .accordion-tab__slider-wrapper .media-slide {
             opacity: 0;
             transition: opacity 0.4s;
         }
+        
         .accordion-tab__slider-wrapper .media-slide.active-item {
             opacity: 1;
         }
-        nav.main-nav,
-        .main-nav {
-            display: flex;
-            align-items: center;
-            min-height: 60px;
-            width: 100%;
-            box-sizing: border-box;
-        }
+        
         .wp-block-column.assistant-video {
             display: block;
             width: 100%;
@@ -781,6 +887,7 @@ function lottie_perf_test_critical_performance_optimizations() {
             position: relative;
             overflow: hidden;
         }
+        
         lite-vimeo,
         .assistant-video lite-vimeo {
             display: block;
@@ -788,28 +895,7 @@ function lottie_perf_test_critical_performance_optimizations() {
             aspect-ratio: 16 / 9;
             min-height: 100%;
         }
-        .entry-content.wp-block-post-content,
-        .wp-block-post-content {
-            display: block;
-            width: 100%;
-            max-width: 100%;
-            padding-left: 0;
-            padding-right: 0;
-            margin-left: 0;
-            margin-right: 0;
-            box-sizing: border-box;
-        }
-        .entry-content.wp-block-post-content.is-layout-constrained,
-        .wp-block-post-content.is-layout-constrained {
-            max-width: 1200px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .entry-content.wp-block-post-content.has-global-padding,
-        .wp-block-post-content.has-global-padding {
-            padding-left: clamp(1.5rem, 5vw, 3rem);
-            padding-right: clamp(1.5rem, 5vw, 3rem);
-        }
+        
         /* CSS Variables */
         :root {
             --wp--preset--color--synergy-white: #ffffff;
@@ -855,29 +941,6 @@ function lottie_perf_test_critical_performance_optimizations() {
             --wp--custom--font-weight--regular: 400;
             --wp--custom--font-weight--medium: 500;
         }
-        
-        @font-face {
-            font-family: "Inter";
-            src: url("' . get_template_directory_uri() . '/assets/font/Inter-Regular-subset-v1.1.0.woff2") format("woff2");
-            font-weight: 400;
-            font-style: normal;
-            font-display: swap;
-            size-adjust: 100%;
-            ascent-override: 90%;
-            descent-override: 22%;
-            line-gap-override: 0%;
-        }
-        @font-face {
-            font-family: "Inter";
-            src: url("' . get_template_directory_uri() . '/assets/font/Inter-Medium-subset-v1.1.0.woff2") format("woff2");
-            font-weight: 500;
-            font-style: normal;
-            font-display: swap;
-            size-adjust: 100%;
-            ascent-override: 90%;
-            descent-override: 22%;
-            line-gap-override: 0%;
-        }
     </style>';
     
     // 6. PRELOAD CRITICAL LOTTIE ANIMATION
@@ -886,7 +949,7 @@ function lottie_perf_test_critical_performance_optimizations() {
         echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/lottie/invoice-capture-agent-1.lottie" as="fetch" crossorigin>';
     }
 }
-add_action('wp_head', 'lottie_perf_test_critical_performance_optimizations', 0);
+add_action('wp_head', 'lottie_perf_test_critical_performance_optimizations', 0); // Priority 0 = loads FIRST
 
 // Fix WordPress Lottie file support
 function lottie_perf_test_add_lottie_support($mimes) {
