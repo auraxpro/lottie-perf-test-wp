@@ -666,6 +666,9 @@ function lottie_perf_test_critical_performance_optimizations() {
     // 2. PRELOAD HERO IMAGE WITH FETCH PRIORITY
     echo '<link rel="preload" as="image" href="' . get_template_directory_uri() . '/assets/images/Tipalti-AI-Header.jpg.webp" fetchpriority="high" imagesrcset="' . get_template_directory_uri() . '/assets/images/Tipalti-AI-Header.jpg.webp 1440w" imagesizes="100vw">';
     
+    // 2b. PRELOAD HERO LOGO IMAGE (stabilize header layout)
+    echo '<link rel="preload" as="image" href="https://tipalti.com/wp-content/uploads/2025/09/Tipalti-AI-Logo_White-300x90.png" crossorigin>';
+    
     // 3. PRELOAD CRITICAL FONTS (with font-display: optional to prevent layout shifts)
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/font/Inter-Regular-subset-v1.1.0.woff2" as="font" type="font/woff2" crossorigin>';
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/font/Inter-Medium-subset-v1.1.0.woff2" as="font" type="font/woff2" crossorigin>';
@@ -801,6 +804,8 @@ function lottie_perf_test_critical_performance_optimizations() {
             width: 100%; 
             height: auto; 
             object-fit: cover;
+            display: block;
+            aspect-ratio: 1440 / 522; /* Reserve space for hero background image */
         }
         
         .wp-block-cover__inner-container {
