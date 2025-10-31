@@ -3,6 +3,7 @@
 /**
  * The header for our theme
  */
+header('ngrok-skip-browser-warning: true');
 
 ?>
 <html <?php language_attributes(); ?>>

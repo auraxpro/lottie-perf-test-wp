@@ -641,6 +641,7 @@ function lottie_perf_test_critical_performance_optimizations() {
             padding-left: clamp(1.5rem, 5vw, 3rem);
             padding-right: clamp(1.5rem, 5vw, 3rem);
         }
+            
         /* CSS Variables */
         :root {
             --wp--preset--color--synergy-white: #ffffff;
