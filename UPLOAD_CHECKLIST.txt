@@ -1,0 +1,40 @@
+═══════════════════════════════════════════════════════════════
+  GoDaddy WordPress Deployment - Quick Checklist
+═══════════════════════════════════════════════════════════════
+
+BEFORE UPLOADING:
+☐ Update wp-config.php with GoDaddy database credentials
+☐ Generate new security keys from https://api.wordpress.org/secret-key/1.1/salt/
+☐ Remove/comment development headers in header.php (lines 6-7)
+☐ Backup existing site (if any)
+
+FILES TO UPLOAD:
+☐ All root .php files (index.php, wp-config.php, etc.)
+☐ wp-admin/ folder (entire folder)
+☐ wp-includes/ folder (entire folder)
+☐ wp-content/ folder (entire folder)
+☐ license.txt
+☐ readme.html
+
+FILES TO EXCLUDE:
+☐ node_modules/ folders (anywhere)
+☐ .git/ folder
+☐ .gitignore file
+☐ .env files
+☐ package.json, package-lock.json (optional)
+☐ vite.config.js, build-assets.js (optional)
+☐ README.md, *.md documentation files (optional)
+☐ .DS_Store, Thumbs.db
+
+AFTER UPLOADING:
+☐ Set file permissions (folders: 755, files: 644)
+☐ Set wp-config.php to 600 (more secure)
+☐ Create/import database in GoDaddy cPanel
+☐ Test site loads correctly
+☐ Test admin login
+☐ Activate lottie-perf-test theme
+☐ Update permalinks (Settings → Permalinks → Save)
+☐ Test all pages and functionality
+
+═══════════════════════════════════════════════════════════════
+
