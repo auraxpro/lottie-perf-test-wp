@@ -2825,6 +2825,31 @@ header('User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
             z-index: 100000;
         }
     </style>
+    <style>
+        .vimeo-video__iframe {
+            height: 101% !important
+        }
+
+        .vimeo-video__image-wrapper {
+            padding-top: 99% !important
+        }
+
+        .entry-content .header-48 {
+            font-size: clamp(2rem, 1.468vw + 1.679rem, 3rem) !important;
+            letter-spacing: -2.88px !important;
+        }
+
+        .has-synergy-pebble-background-color {
+            background-color: #E2E2E2 !important;
+        }
+
+        @media (min-width: 782px) {
+            .accordion-tab__slider-wrapper {
+                background-color: transparent !important;
+                box-shadow: none !important
+            }
+        }
+    </style>
     <?php wp_head(); ?>
 </head>
 
@@ -2836,7 +2861,7 @@ header('User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
             <div class="header-menu">
                 <div id="block-13" class="widget widget_block">
                     <section class="navbar-wrapper">
-                        <div class="navbar js-navbar is-scrolled">
+                        <div class="navbar js-navbar">
                             <div class="logo">
                                 <a href="https://tipalti.com/en-eu/">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="92" height="46" viewBox="0 0 92 46" fill="none">
