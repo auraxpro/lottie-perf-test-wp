@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Theme Name: Lottie Performance Test
  * Description: Tipalti Finance AI replica with 4 Lottie integration strategies for performance testing
@@ -13,7 +14,8 @@ if (!defined('ABSPATH')) {
 }
 
 // Theme setup
-function lottie_perf_test_setup() {
+function lottie_perf_test_setup()
+{
     // Add theme support
     add_theme_support('title-tag');
     add_theme_support('post-thumbnails');
@@ -27,119 +29,101 @@ function lottie_perf_test_setup() {
 }
 add_action('after_setup_theme', 'lottie_perf_test_setup');
 
-// 7-Step Lottie Performance Optimization Scripts
-function lottie_perf_test_scripts() {
-    // Get current page template
-    $template = get_page_template_slug();
-    
-    // Define all Lottie test page templates
-    $lottie_templates = array(
-        'page-local-test.php',
-        'page-canvas-mode-test.php', 
-        'page-defer-test.php',
-        'page-lazy-test.php',
-        'page-cache-test.php',
-        'page-conditional-test.php',
-        'page-poster-test.php',
-        'page-home.php'
-    );
-    
-    if (in_array($template, $lottie_templates)) {
-        add_action('wp_head', function() {
-            $base_uri = get_template_directory_uri() . '/assets/js/';
-            $script   = 'lottie-minimal.js';
-            $versioned_src = esc_url($base_uri . $script . '?ver=1.0.0');
+add_action('wp_head', function () {
+    $base_uri = get_template_directory_uri() . '/assets/js/';
+    $script   = 'lottie-minimal.js';
+    $versioned_src = esc_url($base_uri . $script . '?ver=1.0.0');
 
-            // Preload the JavaScript file so it can be fetched early.
-            echo '<link rel="preload" href="' . $versioned_src . '" as="script" crossorigin>';
+    // Preload the JavaScript file so it can be fetched early.
+    echo '<link rel="preload" href="' . $versioned_src . '" as="script" crossorigin>';
 
-            $script_src_json = wp_json_encode($versioned_src);
+    $script_src_json = wp_json_encode($versioned_src);
 
-            // Lazy-load the heavy Lottie bundle when it is actually needed.
-            echo '<script>
-                document.addEventListener("DOMContentLoaded", function() {
-                    var hasLoaded = false;
-                    var scriptSrc = ' . $script_src_json . ';
+    // Lazy-load the heavy Lottie bundle when it is actually needed.
+    echo '<script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var hasLoaded = false;
+            var scriptSrc = ' . $script_src_json . ';
 
-                    function loadLottieScript() {
-                        if (hasLoaded) {
-                            return;
+            function loadLottieScript() {
+                if (hasLoaded) {
+                    return;
+                }
+                hasLoaded = true;
+
+                var existing = document.querySelector("script[data-lpt-lottie]");
+                if (existing) {
+                    return;
+                }
+
+                var s = document.createElement("script");
+                s.src = scriptSrc;
+                s.async = true;
+                s.crossOrigin = "anonymous";
+                s.setAttribute("data-lpt-lottie", "1");
+                document.head.appendChild(s);
+            }
+
+            function scheduleIdleLoad() {
+                if (hasLoaded) {
+                    return;
+                }
+                if ("requestIdleCallback" in window) {
+                    requestIdleCallback(function() {
+                        loadLottieScript();
+                    }, { timeout: 5000 });
+                } else {
+                    setTimeout(loadLottieScript, 3000);
+                }
+            }
+
+            var players = document.querySelectorAll("dotlottie-player");
+            if (!players.length) {
+                scheduleIdleLoad();
+                return;
+            }
+
+            if ("IntersectionObserver" in window) {
+                var observer = new IntersectionObserver(function(entries, obs) {
+                    entries.forEach(function(entry) {
+                        if (entry.isIntersecting) {
+                            loadLottieScript();
+                            obs.disconnect();
                         }
-                        hasLoaded = true;
+                    });
+                }, { rootMargin: "200px 0px" });
 
-                        var existing = document.querySelector("script[data-lpt-lottie]");
-                        if (existing) {
-                            return;
-                        }
-
-                        var s = document.createElement("script");
-                        s.src = scriptSrc;
-                        s.async = true;
-                        s.crossOrigin = "anonymous";
-                        s.setAttribute("data-lpt-lottie", "1");
-                        document.head.appendChild(s);
-                    }
-
-                    function scheduleIdleLoad() {
-                        if (hasLoaded) {
-                            return;
-                        }
-                        if ("requestIdleCallback" in window) {
-                            requestIdleCallback(function() {
-                                loadLottieScript();
-                            }, { timeout: 5000 });
-                        } else {
-                            setTimeout(loadLottieScript, 3000);
-                        }
-                    }
-
-                    var players = document.querySelectorAll("dotlottie-player");
-                    if (!players.length) {
-                        scheduleIdleLoad();
-                        return;
-                    }
-
-                    if ("IntersectionObserver" in window) {
-                        var observer = new IntersectionObserver(function(entries, obs) {
-                            entries.forEach(function(entry) {
-                                if (entry.isIntersecting) {
-                                    loadLottieScript();
-                                    obs.disconnect();
-                                }
-                            });
-                        }, { rootMargin: "200px 0px" });
-
-                        players.forEach(function(player) {
-                            observer.observe(player);
-                        });
-
-                    } else {
-                        scheduleIdleLoad();
-                    }
+                players.forEach(function(player) {
+                    observer.observe(player);
                 });
-            </script>';
-        }, 3);
-    }
-}
-add_action('wp_enqueue_scripts', 'lottie_perf_test_scripts');
+
+            } else {
+                scheduleIdleLoad();
+            }
+        });
+    </script>';
+}, 3);
 
 // PERFORMANCE OPTIMIZED: Deferred CSS Loading for Non-Critical Styles
-function page_styles_enqueue() {
+function page_styles_enqueue()
+{
     $dist_dir  = get_template_directory() . '/assets/dist/css/';
     $dist_uri  = get_template_directory_uri() . '/assets/dist/css/';
-    
+
     // Debug: Log what files exist on server
     if (current_user_can('administrator') && WP_DEBUG) {
         error_log('CSS Debug - Dist directory exists: ' . (is_dir($dist_dir) ? 'YES' : 'NO'));
         if (is_dir($dist_dir)) {
             $files = scandir($dist_dir);
-            error_log('CSS Debug - Files in dist: ' . implode(', ', array_filter($files, function($f) { return strpos($f, '.css') !== false; })));
+            error_log('CSS Debug - Files in dist: ' . implode(', ', array_filter($files, function ($f) {
+                return strpos($f, '.css') !== false;
+            })));
         }
     }
 
     // Only load critical CSS inline - everything else is deferred
     // This prevents render-blocking CSS and improves FCP/LCP
-    
+
     // Create fallback CSS if needed
     if (!file_exists($dist_dir . 'main.style.min.css')) {
         lottie_perf_test_create_fallback_css();
@@ -148,13 +132,14 @@ function page_styles_enqueue() {
 add_action('wp_enqueue_scripts', 'page_styles_enqueue', 20);
 
 // DEFERRED CSS LOADING: Load non-critical CSS asynchronously using combined file
-function lottie_perf_test_deferred_css_loading() {
+function lottie_perf_test_deferred_css_loading()
+{
     $dist_uri = get_template_directory_uri() . '/assets/dist/css/';
     $dist_dir = get_template_directory() . '/assets/dist/css/';
-    
+
     // Create combined CSS file if it doesn't exist
     lottie_perf_test_combine_css_files();
-    
+
     $critical_css = array(
         'main.style.min.css',
         'style.min.css',
@@ -211,7 +196,7 @@ function lottie_perf_test_deferred_css_loading() {
     if (!empty($lazy_css_urls)) {
         $lazy_css_json = wp_json_encode($lazy_css_urls);
         ob_start();
-        ?>
+?>
         <script>
             (function() {
                 var cssQueue = <?php echo $lazy_css_json; ?>;
@@ -245,16 +230,20 @@ function lottie_perf_test_deferred_css_loading() {
                     if ('requestIdleCallback' in window) {
                         requestIdleCallback(function() {
                             loadQueue();
-                        }, { timeout: 2500 });
+                        }, {
+                            timeout: 2500
+                        });
                     } else {
                         setTimeout(loadQueue, 800);
                     }
                 }
 
-                window.addEventListener('load', scheduleLazyLoad, { once: true });
+                window.addEventListener('load', scheduleLazyLoad, {
+                    once: true
+                });
             })();
         </script>
-        <?php
+<?php
         echo ob_get_clean();
     }
 
@@ -275,7 +264,8 @@ function lottie_perf_test_deferred_css_loading() {
 add_action('wp_head', 'lottie_perf_test_deferred_css_loading', 15);
 
 // Trim unused WordPress core assets to prevent extra render-blocking CSS
-function lottie_perf_test_trim_core_assets() {
+function lottie_perf_test_trim_core_assets()
+{
     if (!is_admin()) {
         $styles = array(
             'wp-block-library-theme',
@@ -294,7 +284,7 @@ function lottie_perf_test_trim_core_assets() {
 add_action('wp_enqueue_scripts', 'lottie_perf_test_trim_core_assets', 100);
 
 // Add debugging and critical accordion layout fixes
-add_action('wp_head', function() {
+add_action('wp_head', function () {
     // Debug: Check if CSS files are being loaded (only for admins)
     if (current_user_can('administrator')) {
         echo '<!-- CSS Debug: Main CSS loaded: ' . (wp_style_is('lpt-main', 'enqueued') ? 'YES' : 'NO') . ' -->';
@@ -302,7 +292,7 @@ add_action('wp_head', function() {
         echo '<!-- JS Debug: Lottie script loaded: ' . (wp_script_is('lottie-minimal', 'enqueued') ? 'YES' : 'NO') . ' -->';
         echo '<!-- Server Debug: Dist dir exists: ' . (is_dir(get_template_directory() . '/assets/dist/css/') ? 'YES' : 'NO') . ' -->';
     }
-        
+
     // Add Lottie initialization script
     echo '<script>
     document.addEventListener("DOMContentLoaded", function() {
@@ -334,33 +324,35 @@ add_action('wp_head', function() {
 }, 25);
 
 // Enqueue accordion tab slider JavaScript
-function lottie_perf_test_enqueue_accordion_scripts() {
-    if (is_page('local-test')) {
-        $js_base = get_template_directory_uri() . '/assets/accordion-tab-slider/';
-        
-        // Enqueue accordion view script
-        if (file_exists(get_template_directory() . '/assets/accordion-tab-slider/view.min.js')) {
-            wp_enqueue_script('lpt-accordion-view', $js_base . 'view.min.js', array(), '1.0.0', true);
-        }
-        
-        // Enqueue accordion tab slider view script
-        if (file_exists(get_template_directory() . '/assets/accordion-tab-slider/AccordionTabSliderView.min.js')) {
-            wp_enqueue_script('lpt-accordion-tab-slider', $js_base . 'AccordionTabSliderView.min.js', array('lpt-accordion-view'), '1.0.0', true);
-        }
+function lottie_perf_test_enqueue_accordion_scripts()
+{
+    $js_base = get_template_directory_uri() . '/assets/accordion-tab-slider/';
+
+    // Enqueue accordion view script
+    if (file_exists(get_template_directory() . '/assets/accordion-tab-slider/view.min.js')) {
+        wp_enqueue_script('lpt-accordion-view', $js_base . 'view.min.js', array(), '1.0.0', true);
+    }
+
+    // Enqueue accordion tab slider view script
+    if (file_exists(get_template_directory() . '/assets/accordion-tab-slider/AccordionTabSliderView.min.js')) {
+        wp_enqueue_script('lpt-accordion-tab-slider', $js_base . 'AccordionTabSliderView.min.js', array('lpt-accordion-view'), '1.0.0', true);
     }
 }
 add_action('wp_enqueue_scripts', 'lottie_perf_test_enqueue_accordion_scripts', 30);
 
 // Strategy 5: Local Hosting with Long-term Caching
-function lottie_perf_test_add_caching_headers() {
+function lottie_perf_test_add_caching_headers()
+{
     // Only apply to Lottie files and only if we're in a WordPress context
     if (defined('ABSPATH') && isset($_SERVER['REQUEST_URI'])) {
         $request_uri = $_SERVER['REQUEST_URI'];
-        
+
         // Only apply to Lottie files
-        if (strpos($request_uri, '.lottie') !== false || 
-            strpos($request_uri, 'dotlottie-player-correct.mjs') !== false) {
-            
+        if (
+            strpos($request_uri, '.lottie') !== false ||
+            strpos($request_uri, 'dotlottie-player-correct.mjs') !== false
+        ) {
+
             // Check if file exists before trying to get ETag
             $file_path = $_SERVER['DOCUMENT_ROOT'] . $request_uri;
             if (file_exists($file_path)) {
@@ -368,7 +360,7 @@ function lottie_perf_test_add_caching_headers() {
                 header('Cache-Control: public, max-age=31536000, immutable'); // 1 year
                 header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
                 header('ETag: "' . md5_file($file_path) . '"');
-                
+
                 // Enable compression
                 if (extension_loaded('zlib') && !ob_get_level()) {
                     ob_start('ob_gzhandler');
@@ -380,14 +372,15 @@ function lottie_perf_test_add_caching_headers() {
 add_action('init', 'lottie_perf_test_add_caching_headers');
 
 // Handle static file serving to prevent WordPress from processing them
-function lottie_perf_test_handle_static_files() {
+function lottie_perf_test_handle_static_files()
+{
     if (isset($_SERVER['REQUEST_URI'])) {
         $request_uri = $_SERVER['REQUEST_URI'];
-        
+
         // Check if this is a request for static assets
         if (preg_match('/\.(css|js|mjs|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|lottie|dotlottie)$/', $request_uri)) {
             $file_path = $_SERVER['DOCUMENT_ROOT'] . $request_uri;
-            
+
             // If file exists, serve it directly
             if (file_exists($file_path)) {
                 // Set proper headers
@@ -407,7 +400,7 @@ function lottie_perf_test_handle_static_files() {
                     'lottie' => 'application/json',
                     'dotlottie' => 'application/json'
                 );
-                
+
                 $extension = pathinfo($file_path, PATHINFO_EXTENSION);
                 if (isset($mime_types[$extension])) {
                     header('Content-Type: ' . $mime_types[$extension]);
@@ -416,7 +409,7 @@ function lottie_perf_test_handle_static_files() {
                 // Prefer serving precompressed variants when available and accepted
                 $accept_encoding = isset($_SERVER['HTTP_ACCEPT_ENCODING']) ? $_SERVER['HTTP_ACCEPT_ENCODING'] : '';
                 $served_compressed = false;
-                if (in_array($extension, array('css','js','mjs'))) {
+                if (in_array($extension, array('css', 'js', 'mjs'))) {
                     header('Vary: Accept-Encoding');
                     if (strpos($accept_encoding, 'br') !== false && file_exists($file_path . '.br')) {
                         header('Content-Encoding: br');
@@ -435,11 +428,11 @@ function lottie_perf_test_handle_static_files() {
                 if ($served_compressed) {
                     exit;
                 }
-                
+
                 // Set caching headers
                 header('Cache-Control: public, max-age=31536000, immutable');
                 header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
-                
+
                 // Output file content
                 readfile($file_path);
                 exit;
@@ -450,20 +443,23 @@ function lottie_perf_test_handle_static_files() {
 add_action('init', 'lottie_perf_test_handle_static_files', 1);
 
 // PERFORMANCE OPTIMIZATION: Compression and caching headers
-function lottie_perf_test_performance_optimizations() {
+function lottie_perf_test_performance_optimizations()
+{
     // Only add performance optimizations if we're not serving static files
-    if (!isset($_SERVER['REQUEST_URI']) || 
-        (strpos($_SERVER['REQUEST_URI'], '.css') === false && 
-         strpos($_SERVER['REQUEST_URI'], '.js') === false && 
-         strpos($_SERVER['REQUEST_URI'], '.mjs') === false)) {
-        
+    if (
+        !isset($_SERVER['REQUEST_URI']) ||
+        (strpos($_SERVER['REQUEST_URI'], '.css') === false &&
+            strpos($_SERVER['REQUEST_URI'], '.js') === false &&
+            strpos($_SERVER['REQUEST_URI'], '.mjs') === false)
+    ) {
+
         // Add compression headers for HTML pages
         if (!headers_sent()) {
             header('Vary: Accept-Encoding');
             header('Cache-Control: public, max-age=3600'); // 1 hour cache
             header('X-Content-Type-Options: nosniff');
             header('X-Frame-Options: SAMEORIGIN');
-            
+
             // Enable compression
             if (extension_loaded('zlib') && !ob_get_level()) {
                 ob_start('ob_gzhandler');
@@ -474,25 +470,26 @@ function lottie_perf_test_performance_optimizations() {
 add_action('wp_head', 'lottie_perf_test_performance_optimizations', 1);
 
 // PERFORMANCE OPTIMIZATION: Critical CSS, Preconnects, and Resource Hints
-function lottie_perf_test_critical_performance_optimizations() {
+function lottie_perf_test_critical_performance_optimizations()
+{
     // 1. PRECONNECT & PREFETCH KEY ORIGINS
     echo '<link rel="preconnect" href="https://tipalti.com" crossorigin>';
     echo '<link rel="preconnect" href="https://f.vimeocdn.com" crossorigin>';
     echo '<link rel="dns-prefetch" href="https://vod-adaptive-ak.vimeocdn.com">';
     echo '<link rel="preconnect" href="https://vumbnail.com" crossorigin>';
     echo '<link rel="preconnect" href="https://player.vimeo.com" crossorigin>';
-    
+
     // 2. PRELOAD HERO IMAGE WITH FETCH PRIORITY
     echo '<link rel="preload" as="image" href="' . get_template_directory_uri() . '/assets/images/Tipalti-AI-Header.jpg.webp" fetchpriority="high" imagesrcset="' . get_template_directory_uri() . '/assets/images/Tipalti-AI-Header.jpg.webp 1440w" imagesizes="100vw">';
-    
+
     // 3. PRELOAD CRITICAL FONTS
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/font/Inter-Regular-subset-v1.1.0.woff2" as="font" type="font/woff2" crossorigin>';
     echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/font/Inter-Medium-subset-v1.1.0.woff2" as="font" type="font/woff2" crossorigin>';
-    
+
     // 4. PRELOAD CRITICAL VIMEO THUMBNAILS
-    echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/images/vumbnail.jpg" as="image" fetchpriority="high" imagesrcset="' . get_template_directory_uri() . '/assets/images/vumbnail.jpg 1280w" imagesizes="100vw" crossorigin>';
-    
-    
+    echo '<link rel="preload" href="' . get_template_directory_uri() . '/assets/images/vumbnail.png" as="image" fetchpriority="high" imagesrcset="' . get_template_directory_uri() . '/assets/images/vumbnail.png 1280w" imagesizes="100vw" crossorigin>';
+
+
     // 5. INLINE CRITICAL CSS (under 3KB for above-the-fold content)
     echo '<style>
         /* Critical CSS for FCP/LCP optimization */
@@ -631,11 +628,6 @@ function lottie_perf_test_critical_performance_optimizations() {
             box-sizing: border-box;
         }
         .entry-content.wp-block-post-content.is-layout-constrained,
-        .wp-block-post-content.is-layout-constrained {
-            max-width: 1200px;
-            margin-left: auto;
-            margin-right: auto;
-        }
         .entry-content.wp-block-post-content.has-global-padding,
         .wp-block-post-content.has-global-padding {
             padding-left: clamp(1.5rem, 5vw, 3rem);
@@ -711,7 +703,7 @@ function lottie_perf_test_critical_performance_optimizations() {
             line-gap-override: 0%;
         }
     </style>';
-    
+
     // 6. PRELOAD CRITICAL LOTTIE ANIMATION
     $template = get_page_template_slug();
     if ($template === 'page-local-test.php') {
@@ -721,7 +713,8 @@ function lottie_perf_test_critical_performance_optimizations() {
 add_action('wp_head', 'lottie_perf_test_critical_performance_optimizations', 0);
 
 // Fix WordPress Lottie file support
-function lottie_perf_test_add_lottie_support($mimes) {
+function lottie_perf_test_add_lottie_support($mimes)
+{
     $mimes['lottie'] = 'application/json';
     $mimes['dotlottie'] = 'application/json';
     return $mimes;
@@ -729,7 +722,8 @@ function lottie_perf_test_add_lottie_support($mimes) {
 add_filter('upload_mimes', 'lottie_perf_test_add_lottie_support');
 
 // Allow Lottie files in uploads
-function lottie_perf_test_allow_lottie_uploads($file) {
+function lottie_perf_test_allow_lottie_uploads($file)
+{
     $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
     if ($ext === 'lottie' || $ext === 'dotlottie') {
         $file['type'] = 'application/json';
@@ -743,7 +737,8 @@ add_filter('wp_handle_upload_prefilter', 'lottie_perf_test_allow_lottie_uploads'
 // No additional script loading needed for local-test.php
 
 // Register navigation menus
-function lottie_perf_test_menus() {
+function lottie_perf_test_menus()
+{
     register_nav_menus(array(
         'primary' => __('Primary Menu', 'lottie-perf-test'),
         'footer' => __('Footer Menu', 'lottie-perf-test'),
@@ -752,7 +747,8 @@ function lottie_perf_test_menus() {
 add_action('init', 'lottie_perf_test_menus');
 
 // Add custom post types for performance test pages
-function lottie_perf_test_post_types() {
+function lottie_perf_test_post_types()
+{
     register_post_type('performance_test', array(
         'labels' => array(
             'name' => 'Performance Tests',
@@ -767,7 +763,8 @@ function lottie_perf_test_post_types() {
 add_action('init', 'lottie_perf_test_post_types');
 
 // Add custom fields for performance metrics
-function lottie_perf_test_meta_boxes() {
+function lottie_perf_test_meta_boxes()
+{
     add_meta_box(
         'performance_metrics',
         'Performance Metrics',
@@ -779,14 +776,15 @@ function lottie_perf_test_meta_boxes() {
 }
 add_action('add_meta_boxes', 'lottie_perf_test_meta_boxes');
 
-function lottie_perf_test_metrics_callback($post) {
+function lottie_perf_test_metrics_callback($post)
+{
     wp_nonce_field('lottie_perf_test_metrics', 'lottie_perf_test_metrics_nonce');
-    
+
     $performance_score = get_post_meta($post->ID, '_performance_score', true);
     $lcp = get_post_meta($post->ID, '_lcp', true);
     $tbt = get_post_meta($post->ID, '_tbt', true);
     $integration_mode = get_post_meta($post->ID, '_integration_mode', true);
-    
+
     echo '<table class="form-table">';
     echo '<tr><th><label for="integration_mode">Integration Mode</label></th>';
     echo '<td><select name="integration_mode" id="integration_mode">';
@@ -805,15 +803,16 @@ function lottie_perf_test_metrics_callback($post) {
 }
 
 // Save custom fields
-function lottie_perf_test_save_meta($post_id) {
+function lottie_perf_test_save_meta($post_id)
+{
     if (!isset($_POST['lottie_perf_test_metrics_nonce']) || !wp_verify_nonce($_POST['lottie_perf_test_metrics_nonce'], 'lottie_perf_test_metrics')) {
         return;
     }
-    
+
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
         return;
     }
-    
+
     if (isset($_POST['integration_mode'])) {
         update_post_meta($post_id, '_integration_mode', sanitize_text_field($_POST['integration_mode']));
     }
@@ -830,7 +829,8 @@ function lottie_perf_test_save_meta($post_id) {
 add_action('save_post', 'lottie_perf_test_save_meta');
 
 // Add admin menu for performance dashboard
-function lottie_perf_test_admin_menu() {
+function lottie_perf_test_admin_menu()
+{
     add_menu_page(
         'Performance Dashboard',
         'Performance',
@@ -847,12 +847,13 @@ add_action('admin_menu', 'lottie_perf_test_admin_menu');
 require_once get_template_directory() . '/lottie-content.php';
 
 // Fix Wasmer admin access
-function fix_wasmer_admin_access() {
+function fix_wasmer_admin_access()
+{
     // Remove Wasmer magic login redirects
     remove_action('init', 'wasmer_magic_login');
     remove_action('wp_ajax_wasmer_magic_login', 'wasmer_magic_login_handler');
     remove_action('wp_ajax_nopriv_wasmer_magic_login', 'wasmer_magic_login_handler');
-    
+
     // Ensure standard WordPress login works
     if (is_admin() && !is_user_logged_in()) {
         // Allow access to wp-login.php
@@ -863,7 +864,8 @@ function fix_wasmer_admin_access() {
 }
 add_action('init', 'fix_wasmer_admin_access', 1);
 
-function lottie_perf_test_dashboard() {
+function lottie_perf_test_dashboard()
+{
     $tests = get_posts(array(
         'post_type' => 'performance_test',
         'posts_per_page' => -1,
@@ -871,19 +873,19 @@ function lottie_perf_test_dashboard() {
         'orderby' => 'meta_value_num',
         'order' => 'DESC'
     ));
-    
+
     echo '<div class="wrap">';
     echo '<h1>Lottie Performance Dashboard</h1>';
     echo '<table class="wp-list-table widefat fixed striped">';
     echo '<thead><tr><th>Test Name</th><th>Integration Mode</th><th>Performance Score</th><th>LCP</th><th>TBT</th><th>Actions</th></tr></thead>';
     echo '<tbody>';
-    
+
     foreach ($tests as $test) {
         $mode = get_post_meta($test->ID, '_integration_mode', true);
         $score = get_post_meta($test->ID, '_performance_score', true);
         $lcp = get_post_meta($test->ID, '_lcp', true);
         $tbt = get_post_meta($test->ID, '_tbt', true);
-        
+
         echo '<tr>';
         echo '<td>' . esc_html($test->post_title) . '</td>';
         echo '<td>' . esc_html(ucfirst($mode)) . '</td>';
@@ -893,21 +895,22 @@ function lottie_perf_test_dashboard() {
         echo '<td><a href="' . get_edit_post_link($test->ID) . '">Edit</a></td>';
         echo '</tr>';
     }
-    
+
     echo '</tbody></table>';
     echo '</div>';
 }
 
 // PERFORMANCE OPTIMIZATION: Combine small CSS files into one bundle
-function lottie_perf_test_combine_css_files() {
+function lottie_perf_test_combine_css_files()
+{
     $dist_dir = get_template_directory() . '/assets/dist/css/';
     $combined_file = $dist_dir . 'combined.min.css';
-    
+
     // Check if combined file exists and is newer than individual files
     if (file_exists($combined_file)) {
         $combined_time = filemtime($combined_file);
         $needs_rebuild = false;
-        
+
         $css_files = array(
             'main.style.min.css',
             'accordion-tabsliderview.min.css',
@@ -921,7 +924,7 @@ function lottie_perf_test_combine_css_files() {
             'testimonial-card-mobile.min.css',
             'customer-cards-mobile.min.css'
         );
-        
+
         foreach ($css_files as $file) {
             $file_path = $dist_dir . $file;
             if (file_exists($file_path) && filemtime($file_path) > $combined_time) {
@@ -929,12 +932,12 @@ function lottie_perf_test_combine_css_files() {
                 break;
             }
         }
-        
+
         if (!$needs_rebuild) {
             return; // Combined file is up to date
         }
     }
-    
+
     // Create combined CSS file
     $combined_css = '';
     $css_files = array(
@@ -950,7 +953,7 @@ function lottie_perf_test_combine_css_files() {
         'testimonial-card-mobile.min.css',
         'customer-cards-mobile.min.css'
     );
-    
+
     foreach ($css_files as $file) {
         $file_path = $dist_dir . $file;
         if (file_exists($file_path)) {
@@ -959,24 +962,25 @@ function lottie_perf_test_combine_css_files() {
             $combined_css .= "\n";
         }
     }
-    
+
     // Minify the combined CSS (basic minification)
     $combined_css = preg_replace('/\s+/', ' ', $combined_css);
     $combined_css = preg_replace('/\/\*.*?\*\//', '', $combined_css);
     $combined_css = str_replace(array('; ', ' {', '{ ', ' }', '} ', ': '), array(';', '{', '{', '}', '}', ':'), $combined_css);
-    
+
     file_put_contents($combined_file, $combined_css);
 }
 
 // Create fallback CSS files if they don't exist on server
-function lottie_perf_test_create_fallback_css() {
+function lottie_perf_test_create_fallback_css()
+{
     $dist_dir = get_template_directory() . '/assets/dist/css/';
-    
+
     // Create directory if it doesn't exist
     if (!is_dir($dist_dir)) {
         wp_mkdir_p($dist_dir);
     }
-    
+
     // Create minimal main.style.min.css
     $main_css = '/* Minimal fallback CSS */
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -987,14 +991,104 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 .accordion-tab__slider-wrapper .media-slide { opacity: 0; transition: opacity 0.4s; }
 .accordion-tab__slider-wrapper .media-slide.active-item { opacity: 1; }
 dotlottie-player { width: 100%; height: 400px; }';
-    
+
     file_put_contents($dist_dir . 'main.style.min.css', $main_css);
-    
+
     // Create minimal accordion CSS
     $accordion_css = '.accordion-tab__slider-wrapper{align-items:center;background-color:#fff;box-shadow:0 4px 16px 0 rgba(0,0,0,0.1);display:flex;flex-direction:column;gap:80px;padding:24px}.accordion-tab__slider-wrapper .pagination-item h3{color:#6c6c6c;cursor:pointer;display:block;margin:0;padding:15px 0 0 0;transition:all 0.4s ease}.accordion-tab__slider-wrapper .pagination-item h3:hover{color:#141414}.accordion-tab__slider-wrapper .pagination-item.active-item h3{color:#141414}.accordion-tab__slider-wrapper .info-slide{max-height:0;opacity:0;overflow:hidden;transition:all 0.4s ease}.accordion-tab__slider-wrapper .info-slide.active-info-item{max-height:500px;opacity:1}.accordion-tab__slider-wrapper .media-slide{opacity:0;transition:all 0.4s ease;width:100%}.accordion-tab__slider-wrapper .media-slide.active-item{opacity:1;display:block}@media(min-width:962px){.accordion-tab__slider-wrapper{flex-direction:row}.accordion-tab__slider-wrapper.is-row-reverse{flex-direction:row-reverse}}';
-    
+
     file_put_contents($dist_dir . 'accordion-tabsliderview.min.css', $accordion_css);
-    
+
     // Create combined CSS file
     lottie_perf_test_combine_css_files();
 }
+
+add_action('wp_footer', function () {
+    ?>
+    <script>
+        (function () {
+            const manifest = [
+                {src: '<?php echo esc_js(get_template_directory_uri() . '/assets/dist/popup/view.min.js'); ?>', selector: '.js-get-started-popup'},
+            ];
+            function inject(src) {
+                if (document.querySelector(`script[src="${src}"]`)) return;
+                const s = document.createElement('script');
+                s.src = src;
+                s.defer = true;
+                document.body.appendChild(s);
+            }
+            function schedule(src) {
+                if ('requestIdleCallback' in window) {
+                    requestIdleCallback(() => inject(src), {timeout: 4000});
+                } else {
+                    setTimeout(() => inject(src), 2000);
+                }
+            }
+            manifest.forEach(({src, selector}) => {
+                if (!document.querySelector(selector)) return;
+                schedule(src);
+            });
+        }());
+    </script>
+    <?php
+}, 60);
+
+add_action('wp_footer', function () {
+    ?>
+    <script>
+        (function () {
+            const manifest = [
+                {src: '<?php echo esc_js(get_template_directory_uri() . '/assets/dist/flying-press/preload.min.js'); ?>', selector: '.js-preload'},
+            ];
+            function inject(src) {
+                if (document.querySelector(`script[src="${src}"]`)) return;
+                const s = document.createElement('script');
+                s.src = src;
+                s.defer = true;
+                document.body.appendChild(s);
+            }
+            function schedule(src) {
+                if ('requestIdleCallback' in window) {
+                    requestIdleCallback(() => inject(src), {timeout: 4000});
+                } else {
+                    setTimeout(() => inject(src), 2000);
+                }
+            }
+            manifest.forEach(({src, selector}) => {
+                if (!document.querySelector(selector)) return;
+                schedule(src);
+            });
+        }());
+    </script>
+    <?php
+}, 60);
+add_action('wp_footer', function () {
+    ?>
+    <script>
+        (function () {
+            const manifest = [
+                {src: '<?php echo esc_js(get_template_directory_uri() . '/assets/dist/megamenu/tmm.min.js'); ?>', selector: '.js-megamenu'},
+            ];
+            function inject(src) {
+                if (document.querySelector(`script[src="${src}"]`)) return;
+                const s = document.createElement('script');
+                s.src = src;
+                s.defer = true;
+                document.body.appendChild(s);
+            }
+            function schedule(src) {
+                if ('requestIdleCallback' in window) {
+                    requestIdleCallback(() => inject(src), {timeout: 4000});
+                } else {
+                    setTimeout(() => inject(src), 2000);
+                }
+            }
+            manifest.forEach(({src, selector}) => {
+                if (!document.querySelector(selector)) return;
+                schedule(src);
+            });
+        }());
+    </script>
+    <?php
+}, 60);
+

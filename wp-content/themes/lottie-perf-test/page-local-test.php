@@ -79,11 +79,11 @@ get_header(); ?>
                     <lite-vimeo
                         videoid="1121254619"
                         aspect-ratio="16/9"
-                        poster="<?php echo get_template_directory_uri(); ?>/assets/images/vumbnail.jpg"
+                        poster="<?php echo get_template_directory_uri(); ?>/assets/images/vumbnail.png"
                         poster-alt="Meet Your New Sidekick video thumbnail"
                         style="display:block;width:100%;height:100%;aspect-ratio:16/9;position:relative;overflow:hidden;border-radius:inherit;">
                         <img
-                            src="<?php echo get_template_directory_uri(); ?>/assets/images/vumbnail.jpg"
+                            src="<?php echo get_template_directory_uri(); ?>/assets/images/vumbnail.png"
                             alt="Meet Your New Sidekick video thumbnail"
                             decoding="async"
                             loading="eager"
